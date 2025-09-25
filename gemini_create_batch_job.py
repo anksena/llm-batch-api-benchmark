@@ -9,11 +9,19 @@ load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Create a sample JSONL file
+# Create a sample JSONL file for a single, optimized request
 with open("my-batch-requests.jsonl", "w") as f:
     requests = [
-        {"key": "request-1", "request": {"contents": [{"parts": [{"text": "Describe the process of photosynthesis."}]}]}},
-        {"key": "request-2", "request": {"contents": [{"parts": [{"text": "What are the main ingredients in a Margherita pizza?"}]}]}}
+        {
+            "key": "request-fast",
+            "request": {
+                "contents": [{"parts": [{"text": "Briefly explain what a CPU is."}]}],
+                "generation_config": {
+                    "temperature": 0.0,
+                    "max_output_tokens": 50
+                }
+            }
+        }
     ]
     for req in requests:
         f.write(json.dumps(req) + "\n")
@@ -28,10 +36,10 @@ print(f"Uploaded file: {uploaded_file.name}")
 
 # Assumes `uploaded_file` is the file object from the previous step
 file_batch_job = client.batches.create(
-    model="models/gemini-2.5-flash",
+    model="models/gemini-1.5-flash",
     src=uploaded_file.name,
     config={
-        'display_name': "file-upload-job-1",
+        'display_name': "optimized-file-upload-job-1",
     },
 )
 
