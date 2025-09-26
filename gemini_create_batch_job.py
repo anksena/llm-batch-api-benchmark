@@ -34,9 +34,14 @@ uploaded_file = client.files.upload(
 
 print(f"Uploaded file: {uploaded_file.name}")
 
+# Clean up the local requests file now that it's uploaded
+if os.path.exists("my-batch-requests.jsonl"):
+    os.remove("my-batch-requests.jsonl")
+    print("Cleaned up local requests file.")
+
 # Assumes `uploaded_file` is the file object from the previous step
 file_batch_job = client.batches.create(
-    model="models/gemini-1.5-flash",
+    model="models/gemini-2.5-flash",
     src=uploaded_file.name,
     config={
         'display_name': "optimized-file-upload-job-1",
@@ -72,12 +77,31 @@ if batch_job_inline.state.name == "JOB_STATE_SUCCEEDED":
     for line in file_content.splitlines():
         # Parse each line to show the result and the original key
         result_obj = json.loads(line)
-        key = result_obj['key']
-        response_text = result_obj['response']['candidates'][0]['content']['parts'][0]['text']
-        print(f"Key: {key}, Response: {response_text.strip().replace('\n', ' ')}")
+        key = result_obj.get('key')
+        response = result_obj.get('response', {})
+        candidates = response.get('candidates', [])
+        
+        if candidates:
+            first_candidate = candidates[0]
+            content = first_candidate.get('content', {})
+            parts = content.get('parts', [])
+            finish_reason = first_candidate.get('finishReason')
+
+            if parts and 'text' in parts[0]:
+                response_text = parts[0]['text']
+                print(f"Key: {key}, Response: {response_text.strip().replace('\n', ' ')}")
+            else:
+                print(f"Key: {key}, Response: [No text content found], Finish Reason: {finish_reason}")
+        else:
+            print(f"Key: {key}, Response: [No candidates found in response]")
     print("-----------------------------")
 
     # Clean up the uploaded files
     client.files.delete(name=uploaded_file.name)
-    client.files.delete(name=os.path.basename(batch_job_inline.dest.file_name))
-    print("Cleaned up uploaded files.")
+    print("Cleaned up uploaded input file.")
+    # NOTE: Deleting the result file is currently failing due to a Gemini API
+    # issue where the generated file ID is longer than the allowed 40 characters
+    # for the delete endpoint.
+    # result_file_id = batch_job_inline.dest.file_name.replace("files/", "")
+    # client.files.delete(name=result_file_id)
+    # print("Cleaned up result file.")
