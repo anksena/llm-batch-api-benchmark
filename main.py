@@ -1,3 +1,4 @@
+import warnings
 from absl import app, flags
 from dotenv import load_dotenv
 from provider_factory import get_provider
@@ -34,6 +35,9 @@ def main(argv):
 
     load_dotenv()
     set_logging_level(FLAGS.debug)
+
+    # Suppress the known UserWarning from the google-genai library
+    warnings.filterwarnings("ignore", message=".*BATCH_STATE_RUNNING is not a valid JobState.*")
 
     try:
         provider = get_provider(FLAGS.provider)
