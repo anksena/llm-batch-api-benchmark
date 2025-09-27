@@ -25,7 +25,7 @@ class AnthropicProvider(BatchProvider):
                 }
             })
 
-        logger.info("Creating Anthropic message batch...")
+        logger.debug("Creating Anthropic message batch...")
         # Note: Anthropic's batch API is in beta and might change.
         # It also does not require a separate file upload step.
         job = self.client.beta.messages.batches.create(requests=anthropic_requests)
@@ -34,7 +34,7 @@ class AnthropicProvider(BatchProvider):
 
         start_time = time.time()
         while job.processing_status not in ('completed', 'failed', 'cancelled', 'expired', 'ended'):
-            logger.info(f"Job not finished. Current status: {job.processing_status}. Waiting 30 seconds...")
+            logger.debug(f"Job not finished. Current status: {job.processing_status}. Waiting 30 seconds...")
             time.sleep(30)
             job = self.client.beta.messages.batches.retrieve(job.id)
 
@@ -43,19 +43,19 @@ class AnthropicProvider(BatchProvider):
         logger.info(f"Job finished with status: {job.processing_status} in {latency:.2f} seconds.")
 
         if job.processing_status == 'completed':
-            logger.info("Batch job succeeded! Retrieving results...")
+            logger.debug("Batch job succeeded! Retrieving results...")
             result_stream = self.client.beta.messages.batches.results(job.id)
             
-            logger.info("--- Anthropic Batch Log ---")
+            logger.debug("--- Anthropic Batch Log ---")
             for entry in result_stream:
                 original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == entry.custom_id), "N/A")
-                logger.info(f"ID: {entry.custom_id}, Prompt: {original_prompt}")
+                logger.debug(f"ID: {entry.custom_id}, Prompt: {original_prompt}")
                 if entry.result.type == "succeeded":
                     response_text = " ".join([c.text for c in entry.result.message.content if hasattr(c, 'text')])
-                    logger.info(f"Response: {response_text.strip()}")
+                    logger.debug(f"Response: {response_text.strip()}")
                 else:
                     logger.error(f"Request failed with error: {entry.result.error}")
-            logger.info("--------------------------")
+            logger.debug("--------------------------")
 
         performance_result = {
             "provider": "anthropic",

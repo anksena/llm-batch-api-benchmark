@@ -27,13 +27,13 @@ class GoogleProvider(BatchProvider):
                 }
                 f.write(json.dumps(gemini_req) + "\n")
         
-        logger.info(f"Batch file created at {file_path}")
+        logger.debug(f"Batch file created at {file_path}")
         uploaded_file = self.client.files.upload(
             file=file_path,
             config=google_genai.types.UploadFileConfig(mime_type="application/jsonl")
         )
         os.remove(file_path)
-        logger.info("Uploaded and cleaned up local file.")
+        logger.debug("Uploaded and cleaned up local file.")
 
         job = self.client.batches.create(
             model="models/gemini-2.5-flash", # Hardcode a known working model
@@ -43,7 +43,7 @@ class GoogleProvider(BatchProvider):
 
         start_time = time.time()
         while job.state.name not in ('JOB_STATE_SUCCEEDED', 'JOB_STATE_FAILED', 'JOB_STATE_CANCELLED'):
-            logger.info(f"Job not finished. Current state: {job.state.name}. Waiting 30 seconds...")
+            logger.debug(f"Job not finished. Current state: {job.state.name}. Waiting 30 seconds...")
             time.sleep(30)
             job = self.client.batches.get(name=job.name)
         
@@ -52,18 +52,18 @@ class GoogleProvider(BatchProvider):
         logger.info(f"Job finished with state: {job.state.name} in {latency:.2f} seconds.")
 
         if job.state.name == 'JOB_STATE_SUCCEEDED':
-            logger.info("Batch job succeeded! Retrieving results...")
+            logger.debug("Batch job succeeded! Retrieving results...")
             result_file_name = job.dest.file_name
             file_content_bytes = self.client.files.download(file=result_file_name)
             file_content = file_content_bytes.decode('utf-8')
             
-            logger.info("--- Gemini Batch Log ---")
+            logger.debug("--- Gemini Batch Log ---")
             for line in file_content.splitlines():
                 logger.debug(f"Raw Response Line: {line}")
                 result_obj = json.loads(line)
                 key = result_obj.get('key')
                 original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == key), "N/A")
-                logger.info(f"ID: {key}, Prompt: {original_prompt}")
+                logger.debug(f"ID: {key}, Prompt: {original_prompt}")
 
                 response = result_obj.get('response', {})
                 candidates = response.get('candidates', [])
@@ -71,16 +71,16 @@ class GoogleProvider(BatchProvider):
                     content = candidates[0].get('content', {})
                     parts = content.get('parts', [])
                     if parts and 'text' in parts[0]:
-                        logger.info(f"Response: {parts[0]['text'].strip()}")
+                        logger.debug(f"Response: {parts[0]['text'].strip()}")
                     else:
                         logger.warning(f"Response: [No text content], Finish Reason: {candidates[0].get('finishReason')}")
                 else:
                     logger.warning("Response: [No candidates found]")
-            logger.info("------------------------")
+            logger.debug("------------------------")
 
             # Cleanup
             self.client.files.delete(name=uploaded_file.name)
-            logger.info("Cleaned up input file.")
+            logger.debug("Cleaned up input file.")
             # NOTE: Skipping result file deletion due to API bug.
         
         performance_result = {

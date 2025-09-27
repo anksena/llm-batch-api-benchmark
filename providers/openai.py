@@ -32,11 +32,11 @@ class OpenAIProvider(BatchProvider):
                 }
                 f.write(json.dumps(openai_req) + "\n")
 
-        logger.info(f"Batch file created at {file_path}")
+        logger.debug(f"Batch file created at {file_path}")
         with open(file_path, "rb") as f:
             batch_file = self.client.files.create(file=f, purpose="batch")
         os.remove(file_path)
-        logger.info("Uploaded and cleaned up local file.")
+        logger.debug("Uploaded and cleaned up local file.")
 
         job = self.client.batches.create(
             input_file_id=batch_file.id,
@@ -47,7 +47,7 @@ class OpenAIProvider(BatchProvider):
 
         start_time = time.time()
         while job.status not in ('completed', 'failed', 'cancelled'):
-            logger.info(f"Job not finished. Current status: {job.status}. Waiting 30 seconds...")
+            logger.debug(f"Job not finished. Current status: {job.status}. Waiting 30 seconds...")
             time.sleep(30)
             job = self.client.batches.retrieve(job.id)
 
@@ -56,28 +56,28 @@ class OpenAIProvider(BatchProvider):
         logger.info(f"Job finished with status: {job.status} in {latency:.2f} seconds.")
 
         if job.status == 'completed':
-            logger.info("Batch job succeeded! Retrieving results...")
+            logger.debug("Batch job succeeded! Retrieving results...")
             result_file_id = job.output_file_id
             result_content = self.client.files.content(result_file_id).content
             
-            logger.info("--- OpenAI Batch Log ---")
+            logger.debug("--- OpenAI Batch Log ---")
             results_str = result_content.decode('utf-8')
             for line in results_str.splitlines():
                 logger.debug(f"Raw Response Line: {line}")
                 result_obj = json.loads(line)
                 custom_id = result_obj.get('custom_id')
                 original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == custom_id), "N/A")
-                logger.info(f"ID: {custom_id}, Prompt: {original_prompt}")
+                logger.debug(f"ID: {custom_id}, Prompt: {original_prompt}")
 
                 response_body = result_obj.get('response', {}).get('body', {})
                 content = response_body.get('choices', [{}])[0].get('message', {}).get('content', '')
-                logger.info(f"Response: {content.strip()}")
-            logger.info("------------------------")
+                logger.debug(f"Response: {content.strip()}")
+            logger.debug("------------------------")
 
             # Cleanup
             self.client.files.delete(batch_file.id)
             self.client.files.delete(result_file_id)
-            logger.info("Cleaned up remote files.")
+            logger.debug("Cleaned up remote files.")
 
         elif job.status == 'failed':
             logger.error("Job failed. Retrieving error details...")
