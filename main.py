@@ -1,6 +1,6 @@
 from absl import app, flags
 from dotenv import load_dotenv
-from batch_processor import get_provider
+from provider_factory import get_provider
 from logger import set_logging_level, get_logger
 from enum import Enum
 

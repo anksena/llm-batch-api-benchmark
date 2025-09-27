@@ -12,8 +12,8 @@ This project provides a unified command-line interface to test and compare the b
 ## Project Structure
 
 - `main.py`: The main command-line interface for interacting with the batch processors.
-- `batch_processor.py`: Contains the abstraction layer (`BatchProvider`) and the concrete implementations for Google (`GoogleProvider`) and OpenAI (`OpenAIProvider`).
-- `.env`: For storing your `GEMINI_API_KEY` and `OPENAI_API_KEY`.
+- `provider_factory.py`: Contains the factory function for creating provider instances.
+- `.env`: For storing your `GOOGLE_API_KEY`, `OPENAI_API_KEY`, and `ANTHROPIC_API_KEY`.
 - `.gitignore`: Ignores virtual environment files and `.env`.
 - `requirements.txt`: Lists the required Python packages.
 
@@ -31,8 +31,9 @@ This project provides a unified command-line interface to test and compare the b
     ```
 4.  **Create a `.env` file** and add your API keys:
     ```
-    GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+    GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
     OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+    ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
     ```
 
 ## Usage
