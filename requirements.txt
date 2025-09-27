@@ -2,3 +2,4 @@ python-dotenv
 google-genai>=1.34.0
 openai
 absl-py
+anthropic

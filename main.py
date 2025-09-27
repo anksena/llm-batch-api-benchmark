@@ -8,6 +8,7 @@ from enum import Enum
 class Provider(Enum):
     GOOGLE = "google"
     OPENAI = "openai"
+    ANTHROPIC = "anthropic"
 
 # Define an Enum for actions
 class Action(Enum):
