@@ -1,6 +1,9 @@
 import argparse
 from dotenv import load_dotenv
 from batch_processor import get_provider
+from logger import set_logging_level, get_logger
+
+logger = get_logger(__name__)
 
 def main():
     load_dotenv()
@@ -9,8 +12,11 @@ def main():
     parser.add_argument("provider", choices=["google", "openai"], help="The AI provider to use.")
     parser.add_argument("action", choices=["create", "list", "cancel", "list-models"], help="The action to perform.")
     parser.add_argument("--job_id", help="The job ID to cancel.")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging.")
 
     args = parser.parse_args()
+
+    set_logging_level(args.debug)
 
     try:
         provider = get_provider(args.provider)
@@ -29,7 +35,7 @@ def main():
 
         elif args.action == "cancel":
             if not args.job_id:
-                print("Error: --job_id is required for the 'cancel' action.")
+                logger.error("--job_id is required for the 'cancel' action.")
                 return
             provider.cancel_job(args.job_id)
 
@@ -37,7 +43,7 @@ def main():
             provider.list_models()
 
     except (ValueError, Exception) as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}", exc_info=args.debug)
 
 if __name__ == "__main__":
     main()

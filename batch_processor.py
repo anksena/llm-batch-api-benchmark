@@ -1,6 +1,9 @@
 import os
+from logger import get_logger
 from providers.google import GoogleProvider
 from providers.openai import OpenAIProvider
+
+logger = get_logger(__name__)
 
 def get_provider(provider_name):
     if provider_name.lower() == "google":
