@@ -1,49 +1,66 @@
-import argparse
+from absl import app, flags
 from dotenv import load_dotenv
 from batch_processor import get_provider
 from logger import set_logging_level, get_logger
+from enum import Enum
+
+# Define an Enum for providers to ensure type safety
+class Provider(Enum):
+    GOOGLE = "google"
+    OPENAI = "openai"
+
+# Define an Enum for actions
+class Action(Enum):
+    CREATE = "create"
+    LIST = "list"
+    CANCEL = "cancel"
+    LIST_MODELS = "list-models"
+
+# Define flags
+FLAGS = flags.FLAGS
+flags.DEFINE_enum("provider", None, [p.value for p in Provider], "The AI provider to use.")
+flags.mark_flag_as_required("provider")
+flags.DEFINE_enum("action", None, [a.value for a in Action], "The action to perform.")
+flags.mark_flag_as_required("action")
+flags.DEFINE_string("job_id", None, "The job ID to cancel.")
+flags.DEFINE_boolean("debug", False, "Enable debug logging.")
 
 logger = get_logger(__name__)
 
-def main():
+def main(argv):
+    # The first argument is the script name, so we ignore it.
+    del argv  
+
     load_dotenv()
-
-    parser = argparse.ArgumentParser(description="Batch processing CLI for AI providers.")
-    parser.add_argument("provider", choices=["google", "openai"], help="The AI provider to use.")
-    parser.add_argument("action", choices=["create", "list", "cancel", "list-models"], help="The action to perform.")
-    parser.add_argument("--job_id", help="The job ID to cancel.")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging.")
-
-    args = parser.parse_args()
-
-    set_logging_level(args.debug)
+    set_logging_level(FLAGS.debug)
 
     try:
-        provider = get_provider(args.provider)
+        provider = get_provider(FLAGS.provider)
 
-        if args.action == "create":
-            # Define a sample request structure that can be adapted by each provider
-            # Define a simple list of prompts to send.
-            # The provider will handle formatting the full request.
+        if FLAGS.action == Action.CREATE.value:
+            logger.info(f"Starting 'create' action for provider: {FLAGS.provider}")
             sample_prompts = [
                 {"custom_id": "request-1", "prompt": "Tell me a short story about a robot who dreams."}
             ]
             provider.create_job(sample_prompts)
         
-        elif args.action == "list":
+        elif FLAGS.action == Action.LIST.value:
+            logger.info(f"Starting 'list' action for provider: {FLAGS.provider}")
             provider.list_jobs()
 
-        elif args.action == "cancel":
-            if not args.job_id:
+        elif FLAGS.action == Action.CANCEL.value:
+            if not FLAGS.job_id:
                 logger.error("--job_id is required for the 'cancel' action.")
                 return
-            provider.cancel_job(args.job_id)
+            logger.info(f"Starting 'cancel' action for provider: {FLAGS.provider} on job: {FLAGS.job_id}")
+            provider.cancel_job(FLAGS.job_id)
 
-        elif args.action == "list-models":
+        elif FLAGS.action == Action.LIST_MODELS.value:
+            logger.info(f"Starting 'list-models' action for provider: {FLAGS.provider}")
             provider.list_models()
 
     except (ValueError, Exception) as e:
-        logger.error(f"An error occurred: {e}", exc_info=args.debug)
+        logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)
 
 if __name__ == "__main__":
-    main()
+    app.run(main)
