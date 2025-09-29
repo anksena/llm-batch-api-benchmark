@@ -80,3 +80,7 @@ python main.py openai list-models
 
 # For Google (lists models that support batch processing)
 python main.py google list-models
+
+## Known Issues
+
+- When running a Google batch job, you may see a `UserWarning: BATCH_STATE_RUNNING is not a valid JobState`. This is a known issue in the `google-genai` library and can be safely ignored. The script will continue to poll until the job reaches a final state.
