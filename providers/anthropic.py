@@ -4,6 +4,7 @@ import json
 from anthropic import Anthropic
 from .base import BatchProvider
 from logger import get_logger
+from data_models import BatchJobResult, PerformanceReport
 
 logger = get_logger(__name__)
 
@@ -19,7 +20,7 @@ class AnthropicProvider(BatchProvider):
             anthropic_requests.append({
                 "custom_id": p["custom_id"],
                 "params": {
-                    "model": "claude-3-opus-20240229", # A known model
+                    "model": "claude-3-haiku-20240307",
                     "messages": [{"role": "user", "content": p["prompt"]}],
                     "max_tokens": 1024,
                 }
@@ -42,35 +43,43 @@ class AnthropicProvider(BatchProvider):
         latency = end_time - start_time
         logger.info(f"Job finished with status: {job.processing_status} in {latency:.2f} seconds.")
 
+        job_results = []
         if job.processing_status == 'completed':
             logger.debug("Batch job succeeded! Retrieving results...")
             result_stream = self.client.beta.messages.batches.results(job.id)
             
-            logger.debug("--- Anthropic Batch Log ---")
             for entry in result_stream:
                 original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == entry.custom_id), "N/A")
-                logger.debug(f"ID: {entry.custom_id}, Prompt: {original_prompt}")
+                
+                response_text = None
+                error_text = None
+                
                 if entry.result.type == "succeeded":
-                    response_text = " ".join([c.text for c in entry.result.message.content if hasattr(c, 'text')])
-                    logger.debug(f"Response: {response_text.strip()}")
+                    response_text = " ".join([c.text for c in entry.result.message.content if hasattr(c, 'text')]).strip()
                 else:
-                    logger.error(f"Request failed with error: {entry.result.error}")
-            logger.debug("--------------------------")
+                    error_text = str(entry.result.error)
 
-        performance_result = {
-            "provider": "anthropic",
-            "job_id": job.id,
-            "start_time": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(start_time)),
-            "end_time": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(end_time)),
-            "latency_seconds": round(latency, 2),
-            "final_status": job.processing_status,
-            "num_requests": len(prompts)
-        }
+                job_results.append(BatchJobResult(
+                    custom_id=entry.custom_id,
+                    prompt=original_prompt,
+                    response=response_text,
+                    error=error_text
+                ))
+        
+        report = PerformanceReport(
+            provider="anthropic",
+            job_id=job.id,
+            latency_seconds=round(latency, 2),
+            final_status=job.processing_status,
+            num_requests=len(prompts),
+            results=job_results
+        )
+
         logger.info("--- Performance Result ---")
-        logger.info(json.dumps(performance_result, indent=2))
+        logger.info(report.to_json())
         logger.info("--------------------------")
 
-        return job
+        return report
 
     def list_jobs(self):
         logger.info("Listing recent Anthropic message batches:")

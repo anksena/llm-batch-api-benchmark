@@ -45,9 +45,10 @@ def main(argv):
         if FLAGS.action == Action.CREATE.value:
             logger.info(f"Starting 'create' action for provider: {FLAGS.provider}")
             sample_prompts = [
-                {"custom_id": "request-1", "prompt": "Tell me a short story about a robot who dreams."}
+                {"custom_id": "request-1", "prompt": "In one sentence, what is the main function of a CPU?"}
             ]
-            provider.create_job(sample_prompts)
+            report = provider.create_job(sample_prompts)
+            # The report is already logged by the provider, but we could do more with it here if needed.
         
         elif FLAGS.action == Action.LIST.value:
             logger.info(f"Starting 'list' action for provider: {FLAGS.provider}")

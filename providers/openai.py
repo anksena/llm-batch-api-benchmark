@@ -4,6 +4,7 @@ import time
 from openai import OpenAI
 from .base import BatchProvider
 from logger import get_logger
+from data_models import BatchJobResult, PerformanceReport
 
 logger = get_logger(__name__)
 
@@ -55,24 +56,28 @@ class OpenAIProvider(BatchProvider):
         latency = end_time - start_time
         logger.info(f"Job finished with status: {job.status} in {latency:.2f} seconds.")
 
+        job_results = []
         if job.status == 'completed':
             logger.debug("Batch job succeeded! Retrieving results...")
             result_file_id = job.output_file_id
             result_content = self.client.files.content(result_file_id).content
             
-            logger.debug("--- OpenAI Batch Log ---")
             results_str = result_content.decode('utf-8')
             for line in results_str.splitlines():
-                logger.debug(f"Raw Response Line: {line}")
                 result_obj = json.loads(line)
                 custom_id = result_obj.get('custom_id')
                 original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == custom_id), "N/A")
-                logger.debug(f"ID: {custom_id}, Prompt: {original_prompt}")
-
+                
                 response_body = result_obj.get('response', {}).get('body', {})
                 content = response_body.get('choices', [{}])[0].get('message', {}).get('content', '')
-                logger.debug(f"Response: {content.strip()}")
-            logger.debug("------------------------")
+                finish_reason = response_body.get('choices', [{}])[0].get('finish_reason')
+
+                job_results.append(BatchJobResult(
+                    custom_id=custom_id,
+                    prompt=original_prompt,
+                    response=content.strip() if content else None,
+                    finish_reason=finish_reason
+                ))
 
             # Cleanup
             self.client.files.delete(batch_file.id)
@@ -82,24 +87,28 @@ class OpenAIProvider(BatchProvider):
         elif job.status == 'failed':
             logger.error("Job failed. Retrieving error details...")
             if job.errors and job.errors.data:
-                logger.error("--- Error Details ---")
-                logger.error(job.errors.data[0])
-                logger.error("---------------------")
+                error_data = job.errors.data[0]
+                job_results.append(BatchJobResult(
+                    custom_id=f"error_line_{error_data.line}",
+                    prompt="N/A",
+                    response=None,
+                    error=f"Code: {error_data.code}, Message: {error_data.message}"
+                ))
         
-        performance_result = {
-            "provider": "openai",
-            "job_id": job.id,
-            "start_time": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(start_time)),
-            "end_time": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(end_time)),
-            "latency_seconds": round(latency, 2),
-            "final_status": job.status,
-            "num_requests": len(prompts)
-        }
+        report = PerformanceReport(
+            provider="openai",
+            job_id=job.id,
+            latency_seconds=round(latency, 2),
+            final_status=job.status,
+            num_requests=len(prompts),
+            results=job_results
+        )
+
         logger.info("--- Performance Result ---")
-        logger.info(json.dumps(performance_result, indent=2))
+        logger.info(report.to_json())
         logger.info("--------------------------")
 
-        return job
+        return report
 
     def list_jobs(self):
         logger.info("Listing recent OpenAI batch jobs:")

@@ -4,6 +4,7 @@ import time
 from google import genai as google_genai
 from .base import BatchProvider
 from logger import get_logger
+from data_models import BatchJobResult, PerformanceReport
 
 logger = get_logger(__name__)
 
@@ -22,7 +23,10 @@ class GoogleProvider(BatchProvider):
                 gemini_req = {
                     "key": p["custom_id"], 
                     "request": {
-                        "contents": [{"parts": [{"text": p["prompt"]}]}]
+                        "contents": [{"parts": [{"text": p["prompt"]}]}],
+                        "generation_config": {
+                            "max_output_tokens": 100
+                        }
                     }
                 }
                 f.write(json.dumps(gemini_req) + "\n")
@@ -36,7 +40,7 @@ class GoogleProvider(BatchProvider):
         logger.debug("Uploaded and cleaned up local file.")
 
         job = self.client.batches.create(
-            model="models/gemini-2.5-flash", # Hardcode a known working model
+            model="models/gemini-2.5-flash-lite",
             src=uploaded_file.name,
         )
         logger.info(f"Created batch job: {job.name}")
@@ -51,52 +55,66 @@ class GoogleProvider(BatchProvider):
         latency = end_time - start_time
         logger.info(f"Job finished with state: {job.state.name} in {latency:.2f} seconds.")
 
+        job_results = []
         if job.state.name == 'JOB_STATE_SUCCEEDED':
             logger.debug("Batch job succeeded! Retrieving results...")
             result_file_name = job.dest.file_name
             file_content_bytes = self.client.files.download(file=result_file_name)
             file_content = file_content_bytes.decode('utf-8')
             
-            logger.debug("--- Gemini Batch Log ---")
             for line in file_content.splitlines():
-                logger.debug(f"Raw Response Line: {line}")
                 result_obj = json.loads(line)
                 key = result_obj.get('key')
                 original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == key), "N/A")
-                logger.debug(f"ID: {key}, Prompt: {original_prompt}")
-
+                
                 response = result_obj.get('response', {})
                 candidates = response.get('candidates', [])
+                
+                response_text = None
+                error_text = None
+                finish_reason = None
+
                 if candidates:
-                    content = candidates[0].get('content', {})
+                    first_candidate = candidates[0]
+                    finish_reason = first_candidate.get('finishReason')
+                    content = first_candidate.get('content', {})
                     parts = content.get('parts', [])
                     if parts and 'text' in parts[0]:
-                        logger.debug(f"Response: {parts[0]['text'].strip()}")
+                        response_text = parts[0]['text'].strip()
                     else:
-                        logger.warning(f"Response: [No text content], Finish Reason: {candidates[0].get('finishReason')}")
+                        error_text = f"No text content found. Finish Reason: {finish_reason}"
                 else:
-                    logger.warning("Response: [No candidates found]")
-            logger.debug("------------------------")
+                    error_text = "No candidates found in response"
+
+                job_results.append(BatchJobResult(
+                    custom_id=key,
+                    prompt=original_prompt,
+                    response=response_text,
+                    error=error_text,
+                    finish_reason=finish_reason
+                ))
 
             # Cleanup
-            self.client.files.delete(name=uploaded_file.name)
-            logger.debug("Cleaned up input file.")
-            # NOTE: Skipping result file deletion due to API bug.
+            try:
+                self.client.files.delete(name=uploaded_file.name)
+                logger.debug("Cleaned up input file.")
+            except Exception as e:
+                logger.warning(f"Could not delete input file {uploaded_file.name}: {e}")
         
-        performance_result = {
-            "provider": "google",
-            "job_id": job.name,
-            "start_time": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(start_time)),
-            "end_time": time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(end_time)),
-            "latency_seconds": round(latency, 2),
-            "final_status": job.state.name,
-            "num_requests": len(prompts)
-        }
+        report = PerformanceReport(
+            provider="google",
+            job_id=job.name,
+            latency_seconds=round(latency, 2),
+            final_status=job.state.name,
+            num_requests=len(prompts),
+            results=job_results
+        )
+
         logger.info("--- Performance Result ---")
-        logger.info(json.dumps(performance_result, indent=2))
+        logger.info(report.to_json())
         logger.info("--------------------------")
 
-        return job
+        return report
 
     def list_jobs(self):
         logger.info("Listing recent Gemini batch jobs:")
@@ -104,9 +122,9 @@ class GoogleProvider(BatchProvider):
             logger.info(f"  - {job.name} ({job.state.name})")
 
     def cancel_job(self, job_id):
-        logger.info(f"Attempting to delete job: {job_id}")
+        logger.info(f"Attempting to delete job (Google's equivalent of cancel): {job_id}")
         self.client.batches.delete(name=job_id)
-        logger.info(f"Successfully deleted job: {job_id}")
+        logger.info(f"Successfully sent delete request for job: {job_id}")
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")
