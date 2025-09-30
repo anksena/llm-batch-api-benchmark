@@ -11,21 +11,16 @@ class Provider(Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
 
-# Define an Enum for actions
-class Action(Enum):
-    CREATE = "create"
-    LIST = "list"
-    CANCEL = "cancel"
-    LIST_MODELS = "list-models"
-
 # Define flags
 FLAGS = flags.FLAGS
 flags.DEFINE_enum("provider", None, [p.value for p in Provider], "The AI provider to use.")
 flags.mark_flag_as_required("provider")
-flags.DEFINE_enum("action", None, [a.value for a in Action], "The action to perform.")
-flags.mark_flag_as_required("action")
-flags.DEFINE_string("job_id", None, "The job ID to cancel.")
+flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
 flags.DEFINE_boolean("debug", False, "Enable debug logging.")
+flags.DEFINE_boolean("create_only", False, "Only create new jobs.")
+flags.DEFINE_boolean("check_only", False, "Only check and process jobs.")
+flags.DEFINE_string("cancel_job_id", None, "The job ID to cancel.")
+
 
 logger = get_logger(__name__)
 
@@ -42,28 +37,23 @@ def main(argv):
     try:
         provider = get_provider(FLAGS.provider)
 
-        if FLAGS.action == Action.CREATE.value:
-            logger.info(f"Starting 'create' action for provider: {FLAGS.provider}")
-            sample_prompts = [
-                {"custom_id": "request-1", "prompt": "In one sentence, what is the main function of a CPU?"}
-            ]
-            report = provider.create_job(sample_prompts)
-            # The report is already logged by the provider, but we could do more with it here if needed.
-        
-        elif FLAGS.action == Action.LIST.value:
-            logger.info(f"Starting 'list' action for provider: {FLAGS.provider}")
-            provider.list_jobs()
-
-        elif FLAGS.action == Action.CANCEL.value:
-            if not FLAGS.job_id:
-                logger.error("--job_id is required for the 'cancel' action.")
-                return
-            logger.info(f"Starting 'cancel' action for provider: {FLAGS.provider} on job: {FLAGS.job_id}")
-            provider.cancel_job(FLAGS.job_id)
-
-        elif FLAGS.action == Action.LIST_MODELS.value:
-            logger.info(f"Starting 'list-models' action for provider: {FLAGS.provider}")
-            provider.list_models()
+        if FLAGS.cancel_job_id:
+            logger.info(f"Cancelling job: {FLAGS.cancel_job_id}")
+            provider.cancel_job(FLAGS.cancel_job_id)
+        elif FLAGS.check_only:
+            logger.info(f"Checking status of recent jobs for provider: {FLAGS.provider}")
+            provider.check_and_process_jobs()
+        elif FLAGS.create_only:
+            logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
+            created_job_ids = provider.create_jobs(FLAGS.num_jobs)
+            logger.info(f"Successfully created job IDs: {created_job_ids}")
+        else: # Default behavior: create and then check
+            logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
+            created_job_ids = provider.create_jobs(FLAGS.num_jobs)
+            logger.info(f"Successfully created job IDs: {created_job_ids}")
+            
+            logger.info(f"Checking status of recent jobs for provider: {FLAGS.provider}")
+            provider.check_and_process_jobs()
 
     except (ValueError, Exception) as e:
         logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)

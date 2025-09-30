@@ -1,10 +1,8 @@
 import os
 import json
-import time
 from google import genai as google_genai
 from .base import BatchProvider
 from logger import get_logger
-from data_models import BatchJobResult, PerformanceReport
 
 logger = get_logger(__name__)
 
@@ -14,120 +12,45 @@ class GoogleProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return google_genai.Client(api_key=api_key)
 
-    def create_job(self, prompts):
-        # Implementation adapted from gemini_create_batch_job.py
-        file_path = "gemini-batch-requests.jsonl"
-        with open(file_path, "w") as f:
-            for p in prompts:
-                # Gemini expects 'key' and 'request' structure
+    def create_jobs(self, num_jobs):
+        job_ids = []
+        for i in range(num_jobs):
+            file_path = f"gemini-batch-request-{i}.jsonl"
+            with open(file_path, "w") as f:
                 gemini_req = {
-                    "key": p["custom_id"], 
+                    "key": "request-1", 
                     "request": {
-                        "contents": [{"parts": [{"text": p["prompt"]}]}],
-                        "generation_config": {
-                            "max_output_tokens": 100
-                        }
+                        "contents": [{"parts": [{"text": self.PROMPT}]}],
                     }
                 }
                 f.write(json.dumps(gemini_req) + "\n")
-        
-        logger.debug(f"Batch file created at {file_path}")
-        uploaded_file = self.client.files.upload(
-            file=file_path,
-            config=google_genai.types.UploadFileConfig(mime_type="application/jsonl")
-        )
-        os.remove(file_path)
-        logger.debug("Uploaded and cleaned up local file.")
-
-        job = self.client.batches.create(
-            model="models/gemini-2.5-flash-lite",
-            src=uploaded_file.name,
-        )
-        logger.info(f"Created batch job: {job.name}")
-
-        start_time = time.time()
-        while job.state.name not in ('JOB_STATE_SUCCEEDED', 'JOB_STATE_FAILED', 'JOB_STATE_CANCELLED'):
-            logger.debug(f"Job not finished. Current state: {job.state.name}. Waiting 30 seconds...")
-            time.sleep(30)
-            job = self.client.batches.get(name=job.name)
-        
-        end_time = time.time()
-        latency = end_time - start_time
-        logger.info(f"Job finished with state: {job.state.name} in {latency:.2f} seconds.")
-
-        job_results = []
-        if job.state.name == 'JOB_STATE_SUCCEEDED':
-            logger.debug("Batch job succeeded! Retrieving results...")
-            result_file_name = job.dest.file_name
-            file_content_bytes = self.client.files.download(file=result_file_name)
-            file_content = file_content_bytes.decode('utf-8')
             
-            for line in file_content.splitlines():
-                result_obj = json.loads(line)
-                key = result_obj.get('key')
-                original_prompt = next((p['prompt'] for p in prompts if p['custom_id'] == key), "N/A")
-                
-                response = result_obj.get('response', {})
-                candidates = response.get('candidates', [])
-                
-                response_text = None
-                error_text = None
-                finish_reason = None
+            uploaded_file = self.client.files.upload(
+                file=file_path,
+                config=google_genai.types.UploadFileConfig(mime_type="application/jsonl")
+            )
+            os.remove(file_path)
 
-                if candidates:
-                    first_candidate = candidates[0]
-                    finish_reason = first_candidate.get('finishReason')
-                    content = first_candidate.get('content', {})
-                    parts = content.get('parts', [])
-                    if parts and 'text' in parts[0]:
-                        response_text = parts[0]['text'].strip()
-                    else:
-                        error_text = f"No text content found. Finish Reason: {finish_reason}"
-                else:
-                    error_text = "No candidates found in response"
+            job = self.client.batches.create(
+                model="models/gemini-2.5-flash-lite",
+                src=uploaded_file.name,
+            )
+            logger.info(f"Created batch job {i+1}/{num_jobs}: {job.name}")
+            job_ids.append(job.name)
+        return job_ids
 
-                job_results.append(BatchJobResult(
-                    custom_id=key,
-                    prompt=original_prompt,
-                    response=response_text,
-                    error=error_text,
-                    finish_reason=finish_reason
-                ))
-
-            # Cleanup
-            try:
-                self.client.files.delete(name=uploaded_file.name)
-                logger.debug("Cleaned up input file.")
-            except Exception as e:
-                logger.warning(f"Could not delete input file {uploaded_file.name}: {e}")
-        
-        report = PerformanceReport(
-            provider="google",
-            job_id=job.name,
-            latency_seconds=round(latency, 2),
-            final_status=job.state.name,
-            num_requests=len(prompts),
-            results=job_results
-        )
-
-        logger.info("--- Performance Result ---")
-        logger.info(report.to_json())
-        logger.info("--------------------------")
-
-        return report
-
-    def list_jobs(self):
-        logger.info("Listing recent Gemini batch jobs:")
-        for job in self.client.batches.list():
-            logger.info(f"  - {job.name} ({job.state.name})")
-
-    def cancel_job(self, job_id):
-        logger.info(f"Attempting to delete job (Google's equivalent of cancel): {job_id}")
-        self.client.batches.delete(name=job_id)
-        logger.info(f"Successfully sent delete request for job: {job_id}")
+    def check_and_process_jobs(self):
+        logger.info("Listing status of last 100 Google jobs:")
+        for job in self.client.batches.list(): 
+            logger.info(f"  - Job ID: {job.name}, Status: {job.state.name}")
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")
         for m in self.client.models.list():
             if 'batchGenerateContent' in m.supported_actions:
                 logger.info(f"- {m.name}")
+
+    def cancel_job(self, job_id):
+        logger.info(f"Attempting to delete job (Google's equivalent of cancel): {job_id}")
+        self.client.batches.delete(name=job_id)
+        logger.info(f"Successfully sent delete request for job: {job_id}")
