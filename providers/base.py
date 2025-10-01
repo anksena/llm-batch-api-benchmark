@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta, timezone
 
 class BatchProvider(ABC):
     """Abstract base class for a batch processing provider."""
@@ -32,3 +33,13 @@ class BatchProvider(ABC):
     def cancel_job(self, job_id):
         """Cancels a batch job."""
         pass
+
+    def _should_skip_job(self, job_create_time):
+        """Returns True if the job is older than 36 hours."""
+        thirty_six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=36)
+        return job_create_time < thirty_six_hours_ago
+
+    def _should_cancel_for_timeout(self, job_create_time):
+        """Returns True if the job has been running for more than 24 hours."""
+        one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+        return job_create_time < one_day_ago

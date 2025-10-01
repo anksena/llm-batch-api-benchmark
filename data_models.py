@@ -9,6 +9,7 @@ class UserStatus(Enum):
     CANCELLED_TIMED_OUT = "CANCELLED_TIMED_OUT"
     IN_PROGRESS = "IN_PROGRESS"
     CANCELLED_ON_DEMAND = "CANCELLED_ON_DEMAND"
+    UNKNOWN = "UNKNOWN"
 
 @dataclass
 class JobStatus:

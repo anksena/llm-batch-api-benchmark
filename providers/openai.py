@@ -48,15 +48,16 @@ class OpenAIProvider(BatchProvider):
 
         with open(output_file, "a") as f:
             for job in self.client.batches.list(limit=100).data:
+                job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
+                # Skip jobs older than 24 hours
+                if self._should_skip_job(job_created_at):
+                    continue
+                
                 report = self._process_job(job)
-                if report:
-                    f.write(report.to_json() + "\n")
+                f.write(report.to_json() + "\n")
 
     def _process_job(self, job):
-        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
-        job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
-        if job_created_at < two_days_ago:
-            return None
+        
         status = JobStatus(
             job_id=job.id,
             status=job.status,
@@ -67,7 +68,7 @@ class OpenAIProvider(BatchProvider):
             failed_requests=job.request_counts.failed
         )
 
-        user_status = UserStatus.IN_PROGRESS
+        user_status = UserStatus.UNKNOWN
         if job.status == 'completed':
             user_status = UserStatus.SUCCEEDED
         elif job.status == 'cancelled':
@@ -79,10 +80,12 @@ class OpenAIProvider(BatchProvider):
             user_status = UserStatus.FAILED
         elif job.status in ('validating', 'in_progress'):
             job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
-            if datetime.now(timezone.utc) - job_created_at > timedelta(days=1):
+            if self._should_cancel_for_timeout(job_created_at):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
                 logger.warning(f"Job {job.id} has timed out. Cancelling...")
                 self.cancel_job(job.id)
+            else:
+                user_status = UserStatus.IN_PROGRESS
         
         return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, details=status)
 

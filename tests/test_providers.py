@@ -41,7 +41,7 @@ class TestGoogleProvider(unittest.TestCase):
         mock_job = MagicMock()
         mock_job.name = "job-123"
         mock_job.state.name = "JOB_STATE_PENDING"
-        mock_job.create_time = datetime.now(timezone.utc) - timedelta(days=1, seconds=1)
+        mock_job.create_time = datetime.now(timezone.utc) - timedelta(hours=25)
         mock_job.end_time = None
         provider.cancel_job = MagicMock()
 
@@ -89,7 +89,7 @@ class TestOpenAIProvider(unittest.TestCase):
         mock_job = MagicMock()
         mock_job.id = "job-123"
         mock_job.status = "in_progress"
-        mock_job.created_at = (datetime.now(timezone.utc) - timedelta(days=1, seconds=1)).timestamp()
+        mock_job.created_at = (datetime.now(timezone.utc) - timedelta(hours=25)).timestamp()
         mock_job.completed_at = None
         provider.cancel_job = MagicMock()
 
@@ -149,7 +149,7 @@ class TestAnthropicProvider(unittest.TestCase):
         mock_job = MagicMock()
         mock_job.id = "job-123"
         mock_job.processing_status = "in_progress"
-        mock_job.created_at = datetime.now(timezone.utc) - timedelta(days=1, seconds=1)
+        mock_job.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
         mock_job.ended_at = None
         provider.cancel_job = MagicMock()
 
