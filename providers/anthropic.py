@@ -45,7 +45,6 @@ class AnthropicProvider(BatchProvider):
                 f.write(report.to_json() + "\n")
 
     def _process_job(self, job):
-        
         status = JobStatus(
             job_id=job.id,
             model=self.MODEL_NAME,

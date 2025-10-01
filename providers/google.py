@@ -56,7 +56,6 @@ class GoogleProvider(BatchProvider):
                 f.write(report.to_json() + "\n")
 
     def _process_job(self, job):
-        
         status = JobStatus(
             job_id=job.name,
             model=job.model,
