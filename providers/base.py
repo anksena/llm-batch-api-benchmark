@@ -19,8 +19,8 @@ class BatchProvider(ABC):
         pass
 
     @abstractmethod
-    def process_jobs(self):
-        """Processes recent jobs and reports their status."""
+    def process_jobs(self, output_file):
+        """Processes recent jobs and appends reports to the output file."""
         pass
 
     @abstractmethod

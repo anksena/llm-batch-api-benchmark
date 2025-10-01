@@ -20,6 +20,7 @@ flags.DEFINE_boolean("debug", False, "Enable debug logging.")
 flags.DEFINE_boolean("create_only", False, "Only create new jobs.")
 flags.DEFINE_boolean("check_jobs", False, "Only check and process jobs.")
 flags.DEFINE_string("cancel_job_id", None, "The job ID to cancel.")
+flags.DEFINE_string("output_file", "job_reports.jsonl", "The file to append job reports to.")
 
 
 logger = get_logger(__name__)
@@ -42,7 +43,7 @@ def main(argv):
             provider.cancel_job(FLAGS.cancel_job_id)
         elif FLAGS.check_jobs:
             logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
-            provider.process_jobs()
+            provider.process_jobs(FLAGS.output_file)
         elif FLAGS.create_only:
             logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
@@ -53,7 +54,7 @@ def main(argv):
             logger.info(f"Successfully created job IDs: {created_job_ids}")
             
             logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
-            provider.process_jobs()
+            provider.process_jobs(FLAGS.output_file)
 
     except (ValueError, Exception) as e:
         logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)

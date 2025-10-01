@@ -24,6 +24,7 @@ class JobStatus:
 @dataclass
 class JobReport:
     """A standardized dataclass for the final report of a single job."""
+    provider: str
     job_id: str
     user_assigned_status: UserStatus
     details: JobStatus

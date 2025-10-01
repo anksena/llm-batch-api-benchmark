@@ -41,13 +41,14 @@ class GoogleProvider(BatchProvider):
             job_ids.append(job.name)
         return job_ids
 
-    def process_jobs(self):
-        logger.info("Processing recent Google jobs...")
+    def process_jobs(self, output_file):
+        logger.info(f"Processing recent Google jobs and appending to {output_file}...")
 
-        for job in self.client.batches.list(): 
-            report = self._process_job(job)
-            if report:
-                logger.info(report.to_json())
+        with open(output_file, "a") as f:
+            for job in self.client.batches.list(): 
+                report = self._process_job(job)
+                if report:
+                    f.write(report.to_json() + "\n")
 
     def _process_job(self, job):
         two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
@@ -76,7 +77,7 @@ class GoogleProvider(BatchProvider):
                 logger.warning(f"Job {job.name} has timed out. Cancelling...")
                 self.cancel_job(job.name)
         
-        return JobReport(job_id=job.name, user_assigned_status=user_status, details=status)
+        return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, details=status)
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")
