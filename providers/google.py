@@ -23,6 +23,9 @@ class GoogleProvider(BatchProvider):
                     "key": "request-1", 
                     "request": {
                         "contents": [{"parts": [{"text": self.PROMPT}]}],
+                        "generation_config": {
+                            "max_output_tokens": self.MAX_TOKENS
+                        }
                     }
                 }
                 f.write(json.dumps(gemini_req) + "\n")
@@ -46,7 +49,6 @@ class GoogleProvider(BatchProvider):
 
         with open(output_file, "a") as f:
             for job in self.client.batches.list():
-                # Skip jobs older than 24 hours
                 if self._should_skip_job(job.create_time):
                     continue
                 
@@ -54,7 +56,6 @@ class GoogleProvider(BatchProvider):
                 f.write(report.to_json() + "\n")
 
     def _process_job(self, job):
-        
         status = JobStatus(
             job_id=job.name,
             model=job.model,

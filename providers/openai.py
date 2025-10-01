@@ -25,7 +25,8 @@ class OpenAIProvider(BatchProvider):
                     "url": "/v1/chat/completions",
                     "body": {
                         "model": "gpt-4o-mini",
-                        "messages": [{"role": "user", "content": self.PROMPT}]
+                        "messages": [{"role": "user", "content": self.PROMPT}],
+                        "max_tokens": self.MAX_TOKENS
                     }
                 }
                 f.write(json.dumps(openai_req) + "\n")
@@ -48,16 +49,13 @@ class OpenAIProvider(BatchProvider):
 
         with open(output_file, "a") as f:
             for job in self.client.batches.list(limit=100).data:
-                job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
-                # Skip jobs older than 24 hours
-                if self._should_skip_job(job_created_at):
+                if self._should_skip_job(datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
                     continue
                 
                 report = self._process_job(job)
                 f.write(report.to_json() + "\n")
 
     def _process_job(self, job):
-        
         status = JobStatus(
             job_id=job.id,
             model=job.model,
@@ -80,8 +78,7 @@ class OpenAIProvider(BatchProvider):
         elif job.status in ('failed', 'expired'):
             user_status = UserStatus.FAILED
         elif job.status in ('validating', 'in_progress'):
-            job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
-            if self._should_cancel_for_timeout(job_created_at):
+            if self._should_cancel_for_timeout(datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
                 logger.warning(f"Job {job.id} has timed out. Cancelling...")
                 self.cancel_job(job.id)

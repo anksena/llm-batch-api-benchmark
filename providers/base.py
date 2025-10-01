@@ -5,6 +5,7 @@ class BatchProvider(ABC):
     """Abstract base class for a batch processing provider."""
 
     PROMPT = "In one sentence, what is the main function of a CPU?"
+    MAX_TOKENS = 1024
 
     def __init__(self, api_key):
         self.client = self._initialize_client(api_key)
