@@ -1,5 +1,6 @@
 import warnings
 import os
+from datetime import datetime
 from absl import app, flags
 from dotenv import load_dotenv
 from provider_factory import get_provider
@@ -35,10 +36,10 @@ def main(argv):
     # The first argument is the script name, so we ignore it.
     del argv  
 
-    # Clear the output file at the beginning of each run
-    if os.path.exists(FLAGS.output_file):
-        with open(FLAGS.output_file, "w") as f:
-            pass
+    # Generate a unique output filename with provider and timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_name, file_extension = os.path.splitext(FLAGS.output_file)
+    output_filename = f"{file_name}_{FLAGS.provider}_{timestamp}{file_extension}"
 
     load_dotenv()
     set_logging_level(FLAGS.debug)
@@ -59,7 +60,7 @@ def main(argv):
 
         if Action.CHECK_JOBS.value in FLAGS.action:
             logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
-            provider.process_jobs(FLAGS.output_file)
+            provider.process_jobs(output_filename)
 
         if Action.CANCEL_JOB.value in FLAGS.action:
             if not FLAGS.job_id:
