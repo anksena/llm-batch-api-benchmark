@@ -60,6 +60,7 @@ class OpenAIProvider(BatchProvider):
         
         status = JobStatus(
             job_id=job.id,
+            model=job.model,
             status=job.status,
             created_at=datetime.fromtimestamp(job.created_at, tz=timezone.utc).isoformat(),
             ended_at=datetime.fromtimestamp(job.completed_at, tz=timezone.utc).isoformat() if job.completed_at else None,

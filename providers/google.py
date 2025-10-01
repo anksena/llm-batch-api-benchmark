@@ -57,6 +57,7 @@ class GoogleProvider(BatchProvider):
         
         status = JobStatus(
             job_id=job.name,
+            model=job.model,
             status=job.state.name,
             created_at=job.create_time.isoformat(),
             ended_at=job.end_time.isoformat() if job.end_time else None,

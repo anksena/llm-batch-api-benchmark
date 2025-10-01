@@ -11,6 +11,8 @@ logger = get_logger(__name__)
 class AnthropicProvider(BatchProvider):
     """Batch processing provider for Anthropic."""
 
+    MODEL_NAME = "claude-3-haiku-20240307"
+
     def _initialize_client(self, api_key):
         return Anthropic(api_key=api_key)
 
@@ -20,7 +22,7 @@ class AnthropicProvider(BatchProvider):
             anthropic_requests = [{
                 "custom_id": "request-1",
                 "params": {
-                    "model": "claude-3-haiku-20240307",
+                    "model": self.MODEL_NAME,
                     "messages": [{"role": "user", "content": self.PROMPT}],
                     "max_tokens": 1024,
                 }
@@ -47,6 +49,7 @@ class AnthropicProvider(BatchProvider):
         
         status = JobStatus(
             job_id=job.id,
+            model=self.MODEL_NAME,
             status=job.processing_status,
             created_at=job.created_at.isoformat(),
             ended_at=job.ended_at.isoformat() if job.ended_at else None,

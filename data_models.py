@@ -15,6 +15,7 @@ class UserStatus(Enum):
 class JobStatus:
     """A standardized dataclass for reporting the status of a batch job."""
     job_id: str
+    model: str
     status: str
     created_at: str
     ended_at: Optional[str] = None
