@@ -80,7 +80,7 @@ class GoogleProvider(BatchProvider):
             else:
                 user_status = UserStatus.IN_PROGRESS
         
-        return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, details=status)
+        return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, service_reported_details=status)
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")

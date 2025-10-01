@@ -73,7 +73,7 @@ class AnthropicProvider(BatchProvider):
             else:
                 user_status = UserStatus.IN_PROGRESS
         
-        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, details=status)
+        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, service_reported_details=status)
 
     def list_models(self):
         logger.warning("Anthropic model listing is not directly supported via a simple API call.")

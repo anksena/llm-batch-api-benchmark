@@ -87,7 +87,7 @@ class OpenAIProvider(BatchProvider):
             else:
                 user_status = UserStatus.IN_PROGRESS
         
-        return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, details=status)
+        return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, service_reported_details=status)
 
     def list_models(self):
         logger.info("Listing available OpenAI models:")

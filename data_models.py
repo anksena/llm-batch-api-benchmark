@@ -28,7 +28,7 @@ class JobReport:
     provider: str
     job_id: str
     user_assigned_status: UserStatus
-    details: JobStatus
+    service_reported_details: JobStatus
 
     def to_json(self):
         # Custom JSON encoder to handle the Enum

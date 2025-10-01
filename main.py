@@ -11,15 +11,20 @@ class Provider(Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
 
+# Define an Enum for actions
+class Action(Enum):
+    CREATE_JOBS = "create_jobs"
+    CHECK_JOBS = "check_jobs"
+    CANCEL_JOB = "cancel_job"
+
 # Define flags
 FLAGS = flags.FLAGS
 flags.DEFINE_enum("provider", None, [p.value for p in Provider], "The AI provider to use.")
 flags.mark_flag_as_required("provider")
+flags.DEFINE_multi_enum("action", [], [a.value for a in Action], "The action(s) to perform.")
 flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
+flags.DEFINE_string("job_id", None, "The job ID to cancel.")
 flags.DEFINE_boolean("debug", False, "Enable debug logging.")
-flags.DEFINE_boolean("create_only", False, "Only create new jobs.")
-flags.DEFINE_boolean("check_jobs", False, "Only check and process jobs.")
-flags.DEFINE_string("cancel_job_id", None, "The job ID to cancel.")
 flags.DEFINE_string("output_file", "job_reports.jsonl", "The file to append job reports to.")
 
 
@@ -38,23 +43,23 @@ def main(argv):
     try:
         provider = get_provider(FLAGS.provider)
 
-        if FLAGS.cancel_job_id:
-            logger.info(f"Cancelling job: {FLAGS.cancel_job_id}")
-            provider.cancel_job(FLAGS.cancel_job_id)
-        elif FLAGS.check_jobs:
-            logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
-            provider.process_jobs(FLAGS.output_file)
-        elif FLAGS.create_only:
+        if not FLAGS.action:
+            raise ValueError("You must specify at least one action with the --action flag.")
+
+        if Action.CREATE_JOBS.value in FLAGS.action:
             logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
             logger.info(f"Successfully created job IDs: {created_job_ids}")
-        else: # Default behavior: create and then check
-            logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
-            created_job_ids = provider.create_jobs(FLAGS.num_jobs)
-            logger.info(f"Successfully created job IDs: {created_job_ids}")
-            
+
+        if Action.CHECK_JOBS.value in FLAGS.action:
             logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
             provider.process_jobs(FLAGS.output_file)
+
+        if Action.CANCEL_JOB.value in FLAGS.action:
+            if not FLAGS.job_id:
+                raise ValueError("The --job_id flag is required for the 'cancel_job' action.")
+            logger.info(f"Cancelling job: {FLAGS.job_id}")
+            provider.cancel_job(FLAGS.job_id)
 
     except (ValueError, Exception) as e:
         logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)
