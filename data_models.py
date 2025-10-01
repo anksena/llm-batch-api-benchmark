@@ -1,6 +1,14 @@
 from dataclasses import dataclass, asdict
 import json
 from typing import Optional
+from enum import Enum
+
+class UserStatus(Enum):
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED_TIMED_OUT = "CANCELLED_TIMED_OUT"
+    IN_PROGRESS = "IN_PROGRESS"
+    CANCELLED_ON_DEMAND = "CANCELLED_ON_DEMAND"
 
 @dataclass
 class JobStatus:
@@ -14,23 +22,12 @@ class JobStatus:
     failed_requests: Optional[int] = None
 
 @dataclass
-class BatchJobResult:
-    """A standardized dataclass for a single request's result."""
-    custom_id: str
-    prompt: str
-    response: str
-    error: str = None
-    finish_reason: str = None
-
-@dataclass
-class PerformanceReport:
-    """A standardized dataclass for the overall performance report."""
-    provider: str
+class JobReport:
+    """A standardized dataclass for the final report of a single job."""
     job_id: str
-    latency_seconds: float
-    final_status: str
-    num_requests: int
-    results: list[BatchJobResult]
+    user_assigned_status: UserStatus
+    details: JobStatus
 
     def to_json(self):
-        return json.dumps(asdict(self), indent=2)
+        # Custom JSON encoder to handle the Enum
+        return json.dumps(asdict(self), indent=2, default=lambda o: o.value)

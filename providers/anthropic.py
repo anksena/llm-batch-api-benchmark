@@ -1,10 +1,10 @@
 import os
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from anthropic import Anthropic
 from .base import BatchProvider
 from logger import get_logger
-from data_models import JobStatus
+from data_models import JobStatus, JobReport, UserStatus
 
 logger = get_logger(__name__)
 
@@ -31,19 +31,45 @@ class AnthropicProvider(BatchProvider):
             job_ids.append(job.id)
         return job_ids
 
-    def check_jobs(self):
-        logger.info("Listing status of recent Anthropic jobs:")
+    def process_jobs(self):
+        logger.info("Processing recent Anthropic jobs...")
+
         for job in self.client.beta.messages.batches.list(limit=100):
-            status = JobStatus(
-                job_id=job.id,
-                status=job.processing_status,
-                created_at=job.created_at.isoformat(),
-                ended_at=job.ended_at.isoformat() if job.ended_at else None,
-                total_requests=job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled,
-                completed_requests=job.request_counts.succeeded,
-                failed_requests=job.request_counts.errored
-            )
-            logger.info(f"Job: {status}")
+            report = self._process_job(job)
+            if report:
+                logger.info(report.to_json())
+
+    def _process_job(self, job):
+        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        if job.created_at < two_days_ago:
+            return None
+        status = JobStatus(
+            job_id=job.id,
+            status=job.processing_status,
+            created_at=job.created_at.isoformat(),
+            ended_at=job.ended_at.isoformat() if job.ended_at else None,
+            total_requests=job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled,
+            completed_requests=job.request_counts.succeeded,
+            failed_requests=job.request_counts.errored
+        )
+
+        user_status = UserStatus.IN_PROGRESS
+        if job.processing_status == 'completed' or (job.processing_status == 'ended' and job.request_counts.succeeded > 0):
+            user_status = UserStatus.SUCCEEDED
+        elif job.processing_status == 'cancelled':
+            if job.ended_at and (job.ended_at - job.created_at) > timedelta(days=1):
+                user_status = UserStatus.CANCELLED_TIMED_OUT
+            else:
+                user_status = UserStatus.CANCELLED_ON_DEMAND
+        elif job.processing_status in ('failed', 'expired', 'ended'):
+            user_status = UserStatus.FAILED
+        elif job.processing_status == 'in_progress':
+            if datetime.now(timezone.utc) - job.created_at > timedelta(days=1):
+                user_status = UserStatus.CANCELLED_TIMED_OUT
+                logger.warning(f"Job {job.id} has timed out. Cancelling...")
+                self.cancel_job(job.id)
+        
+        return JobReport(job_id=job.id, user_assigned_status=user_status, details=status)
 
     def list_models(self):
         logger.warning("Anthropic model listing is not directly supported via a simple API call.")

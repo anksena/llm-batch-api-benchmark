@@ -41,8 +41,8 @@ def main(argv):
             logger.info(f"Cancelling job: {FLAGS.cancel_job_id}")
             provider.cancel_job(FLAGS.cancel_job_id)
         elif FLAGS.check_jobs:
-            logger.info(f"Checking status of recent jobs for provider: {FLAGS.provider}")
-            provider.check_jobs()
+            logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
+            provider.process_jobs()
         elif FLAGS.create_only:
             logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
@@ -52,8 +52,8 @@ def main(argv):
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
             logger.info(f"Successfully created job IDs: {created_job_ids}")
             
-            logger.info(f"Checking status of recent jobs for provider: {FLAGS.provider}")
-            provider.check_jobs()
+            logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
+            provider.process_jobs()
 
     except (ValueError, Exception) as e:
         logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)

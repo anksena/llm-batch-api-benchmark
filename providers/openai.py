@@ -1,10 +1,10 @@
 import os
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from openai import OpenAI
 from .base import BatchProvider
 from logger import get_logger
-from data_models import JobStatus
+from data_models import JobStatus, JobReport, UserStatus
 
 logger = get_logger(__name__)
 
@@ -43,19 +43,47 @@ class OpenAIProvider(BatchProvider):
             job_ids.append(job.id)
         return job_ids
 
-    def check_jobs(self):
-        logger.info("Listing status of recent OpenAI jobs:")
+    def process_jobs(self):
+        logger.info("Processing recent OpenAI jobs...")
+
         for job in self.client.batches.list(limit=100).data:
-            status = JobStatus(
-                job_id=job.id,
-                status=job.status,
-                created_at=datetime.fromtimestamp(job.created_at, tz=timezone.utc).isoformat(),
-                ended_at=datetime.fromtimestamp(job.completed_at, tz=timezone.utc).isoformat() if job.completed_at else None,
-                total_requests=job.request_counts.total,
-                completed_requests=job.request_counts.completed,
-                failed_requests=job.request_counts.failed
-            )
-            logger.info(f"Job: {status}")
+            report = self._process_job(job)
+            if report:
+                logger.info(report.to_json())
+
+    def _process_job(self, job):
+        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
+        if job_created_at < two_days_ago:
+            return None
+        status = JobStatus(
+            job_id=job.id,
+            status=job.status,
+            created_at=datetime.fromtimestamp(job.created_at, tz=timezone.utc).isoformat(),
+            ended_at=datetime.fromtimestamp(job.completed_at, tz=timezone.utc).isoformat() if job.completed_at else None,
+            total_requests=job.request_counts.total,
+            completed_requests=job.request_counts.completed,
+            failed_requests=job.request_counts.failed
+        )
+
+        user_status = UserStatus.IN_PROGRESS
+        if job.status == 'completed':
+            user_status = UserStatus.SUCCEEDED
+        elif job.status == 'cancelled':
+            if job.completed_at and (datetime.fromtimestamp(job.completed_at, tz=timezone.utc) - datetime.fromtimestamp(job.created_at, tz=timezone.utc)) > timedelta(days=1):
+                user_status = UserStatus.CANCELLED_TIMED_OUT
+            else:
+                user_status = UserStatus.CANCELLED_ON_DEMAND
+        elif job.status in ('failed', 'expired'):
+            user_status = UserStatus.FAILED
+        elif job.status in ('validating', 'in_progress'):
+            job_created_at = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
+            if datetime.now(timezone.utc) - job_created_at > timedelta(days=1):
+                user_status = UserStatus.CANCELLED_TIMED_OUT
+                logger.warning(f"Job {job.id} has timed out. Cancelling...")
+                self.cancel_job(job.id)
+        
+        return JobReport(job_id=job.id, user_assigned_status=user_status, details=status)
 
     def list_models(self):
         logger.info("Listing available OpenAI models:")

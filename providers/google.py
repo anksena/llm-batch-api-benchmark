@@ -1,15 +1,12 @@
 import os
 import json
-import time
 from datetime import datetime, timedelta, timezone
 from google import genai as google_genai
 from .base import BatchProvider
 from logger import get_logger
-from data_models import JobStatus, BatchJobResult, PerformanceReport
+from data_models import JobStatus, JobReport, UserStatus
 
 logger = get_logger(__name__)
-
-PROCESSED_JOBS_FILE = ".processed_jobs"
 
 class GoogleProvider(BatchProvider):
     """Batch processing provider for Google."""
@@ -44,18 +41,42 @@ class GoogleProvider(BatchProvider):
             job_ids.append(job.name)
         return job_ids
 
-    def check_jobs(self):
-        logger.info("Checking and processing recent Google jobs...")
-        
+    def process_jobs(self):
+        logger.info("Processing recent Google jobs...")
+
         for job in self.client.batches.list(): 
-            status = JobStatus(
-                job_id=job.name,
-                status=job.state.name,
-                created_at=job.create_time.isoformat(),
-                ended_at=job.end_time.isoformat() if job.end_time else None,
-                # Google's job object doesn't have request counts, so we leave them as None
-            )
-            logger.info(f"Job: {status}")
+            report = self._process_job(job)
+            if report:
+                logger.info(report.to_json())
+
+    def _process_job(self, job):
+        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        if job.create_time < two_days_ago:
+            return None
+        status = JobStatus(
+            job_id=job.name,
+            status=job.state.name,
+            created_at=job.create_time.isoformat(),
+            ended_at=job.end_time.isoformat() if job.end_time else None,
+        )
+
+        user_status = UserStatus.IN_PROGRESS
+        if job.state.name == 'JOB_STATE_SUCCEEDED':
+            user_status = UserStatus.SUCCEEDED
+        elif job.state.name == 'JOB_STATE_CANCELLED':
+            if job.end_time and (job.end_time - job.create_time) > timedelta(days=1):
+                user_status = UserStatus.CANCELLED_TIMED_OUT
+            else:
+                user_status = UserStatus.CANCELLED_ON_DEMAND
+        elif job.state.name in ('JOB_STATE_FAILED', 'JOB_STATE_EXPIRED'):
+            user_status = UserStatus.FAILED
+        elif job.state.name in ('JOB_STATE_PENDING', 'BATCH_STATE_RUNNING'):
+            if datetime.now(timezone.utc) - job.create_time > timedelta(days=1):
+                user_status = UserStatus.CANCELLED_TIMED_OUT
+                logger.warning(f"Job {job.name} has timed out. Cancelling...")
+                self.cancel_job(job.name)
+        
+        return JobReport(job_id=job.name, user_assigned_status=user_status, details=status)
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")
