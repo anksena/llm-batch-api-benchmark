@@ -51,12 +51,17 @@ class GoogleProvider(BatchProvider):
         if self._should_skip_job(job.create_time):
             return None
         
+        latency = None
+        if job.end_time:
+            latency = (job.end_time - job.create_time).total_seconds()
+
         status = JobStatus(
             job_id=job.name,
             model=job.model,
             status=job.state.name,
             created_at=job.create_time.isoformat(),
             ended_at=job.end_time.isoformat() if job.end_time else None,
+            latency_seconds=latency
         )
 
         user_status = UserStatus.UNKNOWN

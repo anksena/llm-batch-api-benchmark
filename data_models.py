@@ -19,6 +19,7 @@ class JobStatus:
     status: str
     created_at: str
     ended_at: Optional[str] = None
+    latency_seconds: Optional[float] = None
     total_requests: Optional[int] = None
     completed_requests: Optional[int] = None
     failed_requests: Optional[int] = None
