@@ -19,8 +19,8 @@ class BatchProvider(ABC):
         pass
 
     @abstractmethod
-    def check_and_process_jobs(self):
-        """Checks the status of recent jobs and processes them."""
+    def check_jobs(self):
+        """Checks the status of recent jobs."""
         pass
 
     @abstractmethod

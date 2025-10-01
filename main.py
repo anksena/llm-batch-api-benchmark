@@ -18,7 +18,7 @@ flags.mark_flag_as_required("provider")
 flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
 flags.DEFINE_boolean("debug", False, "Enable debug logging.")
 flags.DEFINE_boolean("create_only", False, "Only create new jobs.")
-flags.DEFINE_boolean("check_only", False, "Only check and process jobs.")
+flags.DEFINE_boolean("check_jobs", False, "Only check and process jobs.")
 flags.DEFINE_string("cancel_job_id", None, "The job ID to cancel.")
 
 
@@ -40,9 +40,9 @@ def main(argv):
         if FLAGS.cancel_job_id:
             logger.info(f"Cancelling job: {FLAGS.cancel_job_id}")
             provider.cancel_job(FLAGS.cancel_job_id)
-        elif FLAGS.check_only:
+        elif FLAGS.check_jobs:
             logger.info(f"Checking status of recent jobs for provider: {FLAGS.provider}")
-            provider.check_and_process_jobs()
+            provider.check_jobs()
         elif FLAGS.create_only:
             logger.info(f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}")
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
@@ -53,7 +53,7 @@ def main(argv):
             logger.info(f"Successfully created job IDs: {created_job_ids}")
             
             logger.info(f"Checking status of recent jobs for provider: {FLAGS.provider}")
-            provider.check_and_process_jobs()
+            provider.check_jobs()
 
     except (ValueError, Exception) as e:
         logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)

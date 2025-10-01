@@ -1,8 +1,10 @@
 import os
 import json
+from datetime import datetime, timezone
 from anthropic import Anthropic
 from .base import BatchProvider
 from logger import get_logger
+from data_models import JobStatus
 
 logger = get_logger(__name__)
 
@@ -29,10 +31,19 @@ class AnthropicProvider(BatchProvider):
             job_ids.append(job.id)
         return job_ids
 
-    def check_and_process_jobs(self):
-        logger.info("Listing status of last 100 Anthropic jobs:")
+    def check_jobs(self):
+        logger.info("Listing status of recent Anthropic jobs:")
         for job in self.client.beta.messages.batches.list(limit=100):
-            logger.info(f"  - Job ID: {job.id}, Status: {job.processing_status}")
+            status = JobStatus(
+                job_id=job.id,
+                status=job.processing_status,
+                created_at=job.created_at.isoformat(),
+                ended_at=job.ended_at.isoformat() if job.ended_at else None,
+                total_requests=job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled,
+                completed_requests=job.request_counts.succeeded,
+                failed_requests=job.request_counts.errored
+            )
+            logger.info(f"Job: {status}")
 
     def list_models(self):
         logger.warning("Anthropic model listing is not directly supported via a simple API call.")

@@ -1,10 +1,15 @@
 import os
 import json
+import time
+from datetime import datetime, timedelta, timezone
 from google import genai as google_genai
 from .base import BatchProvider
 from logger import get_logger
+from data_models import JobStatus, BatchJobResult, PerformanceReport
 
 logger = get_logger(__name__)
+
+PROCESSED_JOBS_FILE = ".processed_jobs"
 
 class GoogleProvider(BatchProvider):
     """Batch processing provider for Google."""
@@ -39,10 +44,18 @@ class GoogleProvider(BatchProvider):
             job_ids.append(job.name)
         return job_ids
 
-    def check_and_process_jobs(self):
-        logger.info("Listing status of last 100 Google jobs:")
+    def check_jobs(self):
+        logger.info("Checking and processing recent Google jobs...")
+        
         for job in self.client.batches.list(): 
-            logger.info(f"  - Job ID: {job.name}, Status: {job.state.name}")
+            status = JobStatus(
+                job_id=job.name,
+                status=job.state.name,
+                created_at=job.create_time.isoformat(),
+                ended_at=job.end_time.isoformat() if job.end_time else None,
+                # Google's job object doesn't have request counts, so we leave them as None
+            )
+            logger.info(f"Job: {status}")
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")

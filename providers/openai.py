@@ -1,8 +1,10 @@
 import os
 import json
+from datetime import datetime, timezone
 from openai import OpenAI
 from .base import BatchProvider
 from logger import get_logger
+from data_models import JobStatus
 
 logger = get_logger(__name__)
 
@@ -41,10 +43,19 @@ class OpenAIProvider(BatchProvider):
             job_ids.append(job.id)
         return job_ids
 
-    def check_and_process_jobs(self):
-        logger.info("Listing status of last 100 OpenAI jobs:")
+    def check_jobs(self):
+        logger.info("Listing status of recent OpenAI jobs:")
         for job in self.client.batches.list(limit=100).data:
-            logger.info(f"  - Job ID: {job.id}, Status: {job.status}")
+            status = JobStatus(
+                job_id=job.id,
+                status=job.status,
+                created_at=datetime.fromtimestamp(job.created_at, tz=timezone.utc).isoformat(),
+                ended_at=datetime.fromtimestamp(job.completed_at, tz=timezone.utc).isoformat() if job.completed_at else None,
+                total_requests=job.request_counts.total,
+                completed_requests=job.request_counts.completed,
+                failed_requests=job.request_counts.failed
+            )
+            logger.info(f"Job: {status}")
 
     def list_models(self):
         logger.info("Listing available OpenAI models:")
