@@ -36,10 +36,10 @@ class AnthropicProvider(BatchProvider):
     def _get_job_list(self):
         return self.client.beta.messages.batches.list(limit=100)
 
+    def _get_job_create_time(self, job):
+        return job.created_at
+
     def _process_job(self, job):
-        if self._should_skip_job(job.created_at):
-            return None
-        
         latency = None
         if job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)

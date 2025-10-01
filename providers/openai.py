@@ -47,10 +47,10 @@ class OpenAIProvider(BatchProvider):
     def _get_job_list(self):
         return self.client.batches.list(limit=100).data
 
+    def _get_job_create_time(self, job):
+        return datetime.fromtimestamp(job.created_at, tz=timezone.utc)
+
     def _process_job(self, job):
-        if self._should_skip_job(datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
-            return None
-        
         latency = None
         if job.completed_at:
             latency = round(job.completed_at - job.created_at, 2)

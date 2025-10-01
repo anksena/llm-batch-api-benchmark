@@ -47,10 +47,10 @@ class GoogleProvider(BatchProvider):
     def _get_job_list(self):
         return self.client.batches.list()
 
+    def _get_job_create_time(self, job):
+        return job.create_time
+
     def _process_job(self, job):
-        if self._should_skip_job(job.create_time):
-            return None
-        
         latency = None
         if job.end_time:
             latency = round((job.end_time - job.create_time).total_seconds(), 2)
