@@ -1,4 +1,5 @@
 import warnings
+import os
 from absl import app, flags
 from dotenv import load_dotenv
 from provider_factory import get_provider
@@ -33,6 +34,11 @@ logger = get_logger(__name__)
 def main(argv):
     # The first argument is the script name, so we ignore it.
     del argv  
+
+    # Clear the output file at the beginning of each run
+    if os.path.exists(FLAGS.output_file):
+        with open(FLAGS.output_file, "w") as f:
+            pass
 
     load_dotenv()
     set_logging_level(FLAGS.debug)

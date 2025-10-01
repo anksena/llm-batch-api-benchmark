@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 class BatchProvider(ABC):
     """Abstract base class for a batch processing provider."""
