@@ -33,18 +33,13 @@ class AnthropicProvider(BatchProvider):
             job_ids.append(job.id)
         return job_ids
 
-    def process_jobs(self, output_file):
-        logger.info(f"Processing recent Anthropic jobs and appending to {output_file}...")
-
-        with open(output_file, "a") as f:
-            for job in self.client.beta.messages.batches.list(limit=100):
-                if self._should_skip_job(job.created_at):
-                    continue
-                
-                report = self._process_job(job)
-                f.write(report.to_json() + "\n")
+    def _get_job_list(self):
+        return self.client.beta.messages.batches.list(limit=100)
 
     def _process_job(self, job):
+        if self._should_skip_job(job.created_at):
+            return None
+        
         status = JobStatus(
             job_id=job.id,
             model=self.MODEL_NAME,
@@ -57,19 +52,14 @@ class AnthropicProvider(BatchProvider):
         )
 
         user_status = UserStatus.UNKNOWN
-        if job.processing_status == 'completed':
+        if job.processing_status == 'completed' or (job.processing_status == 'ended' and job.request_counts.succeeded > 0):
             user_status = UserStatus.SUCCEEDED
-        elif job.processing_status == 'ended':
-            if job.request_counts.succeeded == job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled:
-                user_status = UserStatus.SUCCEEDED
-            else:
-                user_status = UserStatus.FAILED
         elif job.processing_status == 'cancelled':
             if job.ended_at and (job.ended_at - job.created_at) > timedelta(days=1):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
             else:
                 user_status = UserStatus.CANCELLED_ON_DEMAND
-        elif job.processing_status in ('failed', 'expired'):
+        elif job.processing_status in ('failed', 'expired', 'ended'):
             user_status = UserStatus.FAILED
         elif job.processing_status == 'in_progress':
             if self._should_cancel_for_timeout(job.created_at):

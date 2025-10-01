@@ -44,18 +44,13 @@ class GoogleProvider(BatchProvider):
             job_ids.append(job.name)
         return job_ids
 
-    def process_jobs(self, output_file):
-        logger.info(f"Processing recent Google jobs and appending to {output_file}...")
-
-        with open(output_file, "a") as f:
-            for job in self.client.batches.list():
-                if self._should_skip_job(job.create_time):
-                    continue
-                
-                report = self._process_job(job)
-                f.write(report.to_json() + "\n")
+    def _get_job_list(self):
+        return self.client.batches.list()
 
     def _process_job(self, job):
+        if self._should_skip_job(job.create_time):
+            return None
+        
         status = JobStatus(
             job_id=job.name,
             model=job.model,

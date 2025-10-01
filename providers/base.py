@@ -11,18 +11,23 @@ class BatchProvider(ABC):
         self.client = self._initialize_client(api_key)
 
     @abstractmethod
-    def _initialize_client(self, api_key):
-        """Initializes the provider-specific API client."""
-        pass
-
-    @abstractmethod
     def create_jobs(self, num_jobs):
         """Creates a batch job with n requests."""
         pass
 
-    @abstractmethod
     def process_jobs(self, output_file):
         """Processes recent jobs and appends reports to the output file."""
+        logger.info(f"Processing recent jobs for provider and appending to {output_file}...")
+
+        with open(output_file, "a") as f:
+            for job in self._get_job_list():
+                report = self._process_job(job)
+                if report:
+                    f.write(report.to_json() + "\n")
+
+    @abstractmethod
+    def _get_job_list(self):
+        """Returns a list of recent job objects."""
         pass
 
     @abstractmethod
