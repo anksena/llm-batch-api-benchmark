@@ -56,14 +56,19 @@ class AnthropicProvider(BatchProvider):
         )
 
         user_status = UserStatus.UNKNOWN
-        if job.processing_status == 'completed' or (job.processing_status == 'ended' and job.request_counts.succeeded > 0):
+        if job.processing_status == 'completed':
             user_status = UserStatus.SUCCEEDED
+        elif job.processing_status == 'ended':
+            if job.request_counts.succeeded == job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled:
+                user_status = UserStatus.SUCCEEDED
+            else:
+                user_status = UserStatus.FAILED
         elif job.processing_status == 'cancelled':
             if job.ended_at and (job.ended_at - job.created_at) > timedelta(days=1):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
             else:
                 user_status = UserStatus.CANCELLED_ON_DEMAND
-        elif job.processing_status in ('failed', 'expired', 'ended'):
+        elif job.processing_status in ('failed', 'expired'):
             user_status = UserStatus.FAILED
         elif job.processing_status == 'in_progress':
             if self._should_cancel_for_timeout(job.created_at):
