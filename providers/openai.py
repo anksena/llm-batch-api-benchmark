@@ -51,6 +51,10 @@ class OpenAIProvider(BatchProvider):
         if self._should_skip_job(datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
             return None
         
+        latency = None
+        if job.completed_at:
+            latency = round(job.completed_at - job.created_at, 2)
+
         status = JobStatus(
             job_id=job.id,
             model=job.model,
@@ -80,7 +84,7 @@ class OpenAIProvider(BatchProvider):
             else:
                 user_status = UserStatus.IN_PROGRESS
         
-        return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, service_reported_details=status)
+        return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
     def list_models(self):
         logger.info("Listing available OpenAI models:")

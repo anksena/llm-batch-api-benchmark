@@ -19,7 +19,6 @@ class JobStatus:
     status: str
     created_at: str
     ended_at: Optional[str] = None
-    latency_seconds: Optional[float] = None
     total_requests: Optional[int] = None
     completed_requests: Optional[int] = None
     failed_requests: Optional[int] = None
@@ -30,6 +29,7 @@ class JobReport:
     provider: str
     job_id: str
     user_assigned_status: UserStatus
+    latency_seconds: Optional[float]
     service_reported_details: JobStatus
 
     def to_json(self):

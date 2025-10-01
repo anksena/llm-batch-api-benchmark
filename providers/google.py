@@ -53,7 +53,7 @@ class GoogleProvider(BatchProvider):
         
         latency = None
         if job.end_time:
-            latency = (job.end_time - job.create_time).total_seconds()
+            latency = round((job.end_time - job.create_time).total_seconds(), 2)
 
         status = JobStatus(
             job_id=job.name,
@@ -61,7 +61,6 @@ class GoogleProvider(BatchProvider):
             status=job.state.name,
             created_at=job.create_time.isoformat(),
             ended_at=job.end_time.isoformat() if job.end_time else None,
-            latency_seconds=latency
         )
 
         user_status = UserStatus.UNKNOWN
@@ -82,7 +81,7 @@ class GoogleProvider(BatchProvider):
             else:
                 user_status = UserStatus.IN_PROGRESS
         
-        return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, service_reported_details=status)
+        return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
     def list_models(self):
         logger.info("Listing available Gemini models supporting 'batchGenerateContent':")

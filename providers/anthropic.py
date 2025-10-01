@@ -40,6 +40,10 @@ class AnthropicProvider(BatchProvider):
         if self._should_skip_job(job.created_at):
             return None
         
+        latency = None
+        if job.ended_at:
+            latency = round((job.ended_at - job.created_at).total_seconds(), 2)
+
         status = JobStatus(
             job_id=job.id,
             model=self.MODEL_NAME,
@@ -69,7 +73,7 @@ class AnthropicProvider(BatchProvider):
             else:
                 user_status = UserStatus.IN_PROGRESS
         
-        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, service_reported_details=status)
+        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
     def list_models(self):
         logger.warning("Anthropic model listing is not directly supported via a simple API call.")
