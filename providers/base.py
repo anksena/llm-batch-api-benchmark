@@ -24,10 +24,6 @@ class BatchProvider(ABC):
 
         with open(output_file, "a") as f:
             for job in self._get_job_list():
-                create_time = self._get_job_create_time(job)
-                if self._should_skip_job(create_time):
-                    continue
-                
                 report = self._process_job(job)
                 if report:
                     f.write(report.to_json() + "\n")

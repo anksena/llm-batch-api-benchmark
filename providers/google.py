@@ -45,7 +45,13 @@ class GoogleProvider(BatchProvider):
         return job_ids
 
     def _get_job_list(self):
-        return self.client.batches.list()
+        all_jobs = []
+        thirty_six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=36)
+        for job in self.client.batches.list(config={'page_size': 10}):
+            if job.create_time < thirty_six_hours_ago:
+                break
+            all_jobs.append(job)
+        return all_jobs
 
     def _get_job_create_time(self, job):
         return job.create_time

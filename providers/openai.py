@@ -45,7 +45,15 @@ class OpenAIProvider(BatchProvider):
         return job_ids
 
     def _get_job_list(self):
-        return self.client.batches.list(limit=100).data
+        all_jobs = []
+        thirty_six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=36)
+        for page in self.client.batches.list(limit=10).iter_pages():
+            for job in page.data:
+                job_create_time = datetime.fromtimestamp(job.created_at, tz=timezone.utc)
+                if job_create_time < thirty_six_hours_ago:
+                    return all_jobs
+                all_jobs.append(job)
+        return all_jobs
 
     def _get_job_create_time(self, job):
         return datetime.fromtimestamp(job.created_at, tz=timezone.utc)

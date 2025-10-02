@@ -34,7 +34,14 @@ class AnthropicProvider(BatchProvider):
         return job_ids
 
     def _get_job_list(self):
-        return self.client.beta.messages.batches.list(limit=100)
+        all_jobs = []
+        thirty_six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=36)
+        for page in self.client.beta.messages.batches.list(limit=10).iter_pages():
+            for job in page.data:
+                if job.created_at < thirty_six_hours_ago:
+                    return all_jobs
+                all_jobs.append(job)
+        return all_jobs
 
     def _get_job_create_time(self, job):
         return job.created_at
