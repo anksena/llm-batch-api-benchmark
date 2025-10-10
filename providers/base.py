@@ -56,6 +56,11 @@ class BatchProvider(ABC):
         """Cancels a batch job."""
         pass
 
+    @abstractmethod
+    def check_single_job(self, job_id):
+        """Checks the status of a single batch job."""
+        pass
+
     def _should_skip_job(self, job_create_time):
         """Returns True if the job is older than 36 hours."""
         thirty_six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=36)

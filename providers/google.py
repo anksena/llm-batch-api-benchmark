@@ -96,3 +96,9 @@ class GoogleProvider(BatchProvider):
         logger.info(f"Attempting to delete job (Google's equivalent of cancel): {job_id}")
         self.client.batches.delete(name=job_id)
         logger.info(f"Successfully sent delete request for job: {job_id}")
+
+    def check_single_job(self, job_id):
+        job = self.client.batches.get(name=job_id)
+        report = self._process_job(job)
+        if report:
+            print(report.to_json())

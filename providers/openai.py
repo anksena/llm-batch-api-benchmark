@@ -100,3 +100,9 @@ class OpenAIProvider(BatchProvider):
         logger.info(f"Attempting to cancel job: {job_id}")
         cancelled_job = self.client.batches.cancel(job_id)
         logger.info(f"Job {cancelled_job.id} is now {cancelled_job.status}")
+
+    def check_single_job(self, job_id):
+        job = self.client.batches.retrieve(batch_id=job_id)
+        report = self._process_job(job)
+        if report:
+            print(report.to_json())

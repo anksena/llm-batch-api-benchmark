@@ -17,6 +17,7 @@ class Provider(Enum):
 class Action(Enum):
     CREATE_JOBS = "create_jobs"
     CHECK_JOBS = "check_jobs"
+    CHECK_SINGLE_JOB = "check_single_job"
     CANCEL_JOB = "cancel_job"
 
 # Define flags
@@ -61,6 +62,12 @@ def main(argv):
         if Action.CHECK_JOBS.value in FLAGS.action:
             logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
             provider.process_jobs(output_filename)
+
+        if Action.CHECK_SINGLE_JOB.value in FLAGS.action:
+            if not FLAGS.job_id:
+                raise ValueError("The --job_id flag is required for the 'check_single_job' action.")
+            logger.info(f"Checking status of job: {FLAGS.job_id}")
+            provider.check_single_job(FLAGS.job_id)
 
         if Action.CANCEL_JOB.value in FLAGS.action:
             if not FLAGS.job_id:
