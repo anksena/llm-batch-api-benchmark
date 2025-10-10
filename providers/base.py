@@ -13,9 +13,17 @@ class BatchProvider(ABC):
     def __init__(self, api_key):
         self.client = self._initialize_client(api_key)
 
-    @abstractmethod
     def create_jobs(self, num_jobs):
         """Creates a batch job with n requests."""
+        job_ids = []
+        for i in range(num_jobs):
+            job_id = self._create_single_job(i, num_jobs)
+            job_ids.append(job_id)
+        return job_ids
+
+    @abstractmethod
+    def _create_single_job(self, job_index, total_jobs):
+        """Creates a single batch job."""
         pass
 
     def process_jobs(self, output_file):

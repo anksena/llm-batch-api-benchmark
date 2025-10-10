@@ -14,35 +14,32 @@ class GoogleProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return google_genai.Client(api_key=api_key)
 
-    def create_jobs(self, num_jobs):
-        job_ids = []
-        for i in range(num_jobs):
-            file_path = f"gemini-batch-request-{i}.jsonl"
-            with open(file_path, "w") as f:
-                gemini_req = {
-                    "key": "request-1", 
-                    "request": {
-                        "contents": [{"parts": [{"text": self.PROMPT}]}],
-                        "generation_config": {
-                            "max_output_tokens": self.MAX_TOKENS
-                        }
+    def _create_single_job(self, job_index, total_jobs):
+        file_path = f"gemini-batch-request-{job_index}.jsonl"
+        with open(file_path, "w") as f:
+            gemini_req = {
+                "key": "request-1", 
+                "request": {
+                    "contents": [{"parts": [{"text": self.PROMPT}]}],
+                    "generation_config": {
+                        "max_output_tokens": self.MAX_TOKENS
                     }
                 }
-                f.write(json.dumps(gemini_req) + "\n")
-            
-            uploaded_file = self.client.files.upload(
-                file=file_path,
-                config=google_genai.types.UploadFileConfig(mime_type="application/jsonl")
-            )
-            os.remove(file_path)
+            }
+            f.write(json.dumps(gemini_req) + "\n")
+        
+        uploaded_file = self.client.files.upload(
+            file=file_path,
+            config=google_genai.types.UploadFileConfig(mime_type="application/jsonl")
+        )
+        os.remove(file_path)
 
-            job = self.client.batches.create(
-                model="models/gemini-2.5-flash-lite",
-                src=uploaded_file.name,
-            )
-            logger.info(f"Created batch job {i+1}/{num_jobs}: {job.name}")
-            job_ids.append(job.name)
-        return job_ids
+        job = self.client.batches.create(
+            model="models/gemini-2.5-flash-lite",
+            src=uploaded_file.name,
+        )
+        logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.name}")
+        return job.name
 
     def _get_job_list(self):
         all_jobs = []

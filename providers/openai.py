@@ -14,35 +14,32 @@ class OpenAIProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return OpenAI(api_key=api_key)
 
-    def create_jobs(self, num_jobs):
-        job_ids = []
-        for i in range(num_jobs):
-            file_path = f"openai-batch-request-{i}.jsonl"
-            with open(file_path, "w") as f:
-                openai_req = {
-                    "custom_id": "request-1",
-                    "method": "POST",
-                    "url": "/v1/chat/completions",
-                    "body": {
-                        "model": "gpt-4o-mini",
-                        "messages": [{"role": "user", "content": self.PROMPT}],
-                        "max_tokens": self.MAX_TOKENS
-                    }
+    def _create_single_job(self, job_index, total_jobs):
+        file_path = f"openai-batch-request-{job_index}.jsonl"
+        with open(file_path, "w") as f:
+            openai_req = {
+                "custom_id": "request-1",
+                "method": "POST",
+                "url": "/v1/chat/completions",
+                "body": {
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": self.PROMPT}],
+                    "max_tokens": self.MAX_TOKENS
                 }
-                f.write(json.dumps(openai_req) + "\n")
+            }
+            f.write(json.dumps(openai_req) + "\n")
 
-            with open(file_path, "rb") as f:
-                batch_file = self.client.files.create(file=f, purpose="batch")
-            os.remove(file_path)
+        with open(file_path, "rb") as f:
+            batch_file = self.client.files.create(file=f, purpose="batch")
+        os.remove(file_path)
 
-            job = self.client.batches.create(
-                input_file_id=batch_file.id,
-                endpoint="/v1/chat/completions",
-                completion_window="24h"
-            )
-            logger.info(f"Created batch job {i+1}/{num_jobs}: {job.id}")
-            job_ids.append(job.id)
-        return job_ids
+        job = self.client.batches.create(
+            input_file_id=batch_file.id,
+            endpoint="/v1/chat/completions",
+            completion_window="24h"
+        )
+        logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.id}")
+        return job.id
 
     def _get_job_list(self):
         all_jobs = []
