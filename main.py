@@ -1,5 +1,6 @@
 import warnings
 import os
+import json
 from datetime import datetime
 from absl import app, flags
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ class Action(Enum):
     CREATE_JOBS = "create_jobs"
     CHECK_JOBS = "check_jobs"
     CHECK_SINGLE_JOB = "check_single_job"
+    CHECK_JOBS_FROM_FILE = "check_jobs_from_file"
     CANCEL_JOB = "cancel_job"
 
 # Define flags
@@ -27,6 +29,7 @@ flags.mark_flag_as_required("provider")
 flags.DEFINE_multi_enum("action", [], [a.value for a in Action], "The action(s) to perform.")
 flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
 flags.DEFINE_string("job_id", None, "The job ID to cancel.")
+flags.DEFINE_string("state_file", None, "The path to the state file to process.")
 flags.DEFINE_boolean("debug", False, "Enable debug logging.")
 flags.DEFINE_string("output_file", "job_reports.jsonl", "The file to append job reports to.")
 
@@ -68,6 +71,12 @@ def main(argv):
                 raise ValueError("The --job_id flag is required for the 'check_single_job' action.")
             logger.info(f"Checking status of job: {FLAGS.job_id}")
             provider.check_single_job(FLAGS.job_id)
+
+        if Action.CHECK_JOBS_FROM_FILE.value in FLAGS.action:
+            if not FLAGS.state_file:
+                raise ValueError("The --state_file flag is required for the 'check_jobs_from_file' action.")
+            logger.info(f"Checking jobs from file: {FLAGS.state_file}")
+            provider.check_jobs_from_file(FLAGS.state_file, output_filename)
 
         if Action.CANCEL_JOB.value in FLAGS.action:
             if not FLAGS.job_id:
