@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from logger import get_logger
@@ -21,10 +22,18 @@ class BatchProvider(ABC):
             job_ids.append(job_id)
         return job_ids
 
-    @abstractmethod
-    def _create_single_job(self, job_index, total_jobs):
-        """Creates a single batch job."""
-        pass
+    def check_jobs_from_file(self, state_file, output_file):
+        """Processes a state file of jobs and checks their status."""
+        with open(state_file, "r") as f_in, open(output_file, "a") as f_out:
+            for line in f_in:
+                job_data = json.loads(line)
+                job_id = job_data.get("job_id")
+                if job_id:
+                    report = self.check_single_job(job_id)
+                    if report:
+                        report_json = report.to_json()
+                        print(report_json)
+                        f_out.write(report_json + "\n")
 
     def process_jobs(self, output_file):
         """Processes recent jobs and appends reports to the output file."""

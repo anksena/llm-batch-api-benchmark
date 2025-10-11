@@ -102,16 +102,3 @@ class GoogleProvider(BatchProvider):
         report = self._process_job(job)
         if report:
             return report
-
-    def check_jobs_from_file(self, state_file, output_file):
-        with open(state_file, "r") as f_in, open(output_file, "a") as f_out:
-            for line in f_in:
-                job_data = json.loads(line)
-                job_id = job_data.get("job_id")
-                if job_id:
-                    job = self.client.batches.get(name=job_id)
-                    report = self._process_job(job)
-                    if report:
-                        report_json = report.to_json()
-                        print(report_json)
-                        f_out.write(report_json + "\n")
