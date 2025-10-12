@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from anthropic import Anthropic
 from .base import BatchProvider
 from logger import get_logger
-from data_models import JobStatus, JobReport, UserStatus
+from data_models import ServiceReportedJobDetails, JobReport, UserStatus
 
 logger = get_logger(__name__)
 
@@ -48,10 +48,10 @@ class AnthropicProvider(BatchProvider):
         if job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
 
-        status = JobStatus(
+        status = ServiceReportedJobDetails(
             job_id=job.id,
             model=self.MODEL_NAME,
-            status=job.processing_status,
+            service_job_status=job.processing_status,
             created_at=job.created_at.isoformat(),
             ended_at=job.ended_at.isoformat() if job.ended_at else None,
             total_requests=job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled,

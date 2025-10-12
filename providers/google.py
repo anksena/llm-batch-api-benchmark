@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from google import genai as google_genai
 from .base import BatchProvider
 from logger import get_logger
-from data_models import JobStatus, JobReport, UserStatus
+from data_models import ServiceReportedJobDetails, JobReport, UserStatus
 
 logger = get_logger(__name__)
 
@@ -58,10 +58,10 @@ class GoogleProvider(BatchProvider):
         if job.end_time:
             latency = round((job.end_time - job.create_time).total_seconds(), 2)
 
-        status = JobStatus(
+        status = ServiceReportedJobDetails(
             job_id=job.name,
             model=job.model,
-            status=job.state.name,
+            service_job_status=job.state.name,
             created_at=job.create_time.isoformat(),
             ended_at=job.end_time.isoformat() if job.end_time else None,
         )

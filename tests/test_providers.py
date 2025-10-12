@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from providers.google import GoogleProvider
 from providers.openai import OpenAIProvider
 from providers.anthropic import AnthropicProvider
-from data_models import UserStatus
+from data_models import UserStatus, ServiceReportedJobDetails
 
 class TestGoogleProvider(unittest.TestCase):
 

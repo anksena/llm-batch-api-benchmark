@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from openai import OpenAI
 from .base import BatchProvider
 from logger import get_logger
-from data_models import JobStatus, JobReport, UserStatus
+from data_models import ServiceReportedJobDetails, JobReport, UserStatus
 
 logger = get_logger(__name__)
 
@@ -60,10 +60,10 @@ class OpenAIProvider(BatchProvider):
         if job.completed_at:
             latency = round(job.completed_at - job.created_at, 2)
 
-        status = JobStatus(
+        status = ServiceReportedJobDetails(
             job_id=job.id,
             model=job.model,
-            status=job.status,
+            service_job_status=job.status,
             created_at=datetime.fromtimestamp(job.created_at, tz=timezone.utc).isoformat(),
             ended_at=datetime.fromtimestamp(job.completed_at, tz=timezone.utc).isoformat() if job.completed_at else None,
             total_requests=job.request_counts.total,

@@ -17,7 +17,7 @@ class MockGoogleJob:
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from providers.google import GoogleProvider
-from data_models import JobReport, JobStatus, UserStatus
+from data_models import JobReport, ServiceReportedJobDetails, UserStatus
 
 class TestCheckJobsFromFile(unittest.TestCase):
 
@@ -26,8 +26,8 @@ class TestCheckJobsFromFile(unittest.TestCase):
 
         # Create a mock state file
         with open("test_state_file.jsonl", "w") as f:
-            f.write('{"provider": "google", "job_id": "job-123", "user_assigned_status": "IN_PROGRESS", "latency_seconds": null, "service_reported_details": {"job_id": "job-123", "model": "models/gemini-2.5-flash-lite", "status": "JOB_STATE_PENDING", "created_at": "2025-10-12T06:00:00+00:00", "ended_at": null, "total_requests": null, "completed_requests": null, "failed_requests": null}}\n')
-            f.write('{"provider": "google", "job_id": "job-456", "user_assigned_status": "IN_PROGRESS", "latency_seconds": null, "service_reported_details": {"job_id": "job-456", "model": "models/gemini-2.5-flash-lite", "status": "JOB_STATE_PENDING", "created_at": "2025-10-10T06:00:00+00:00", "ended_at": null, "total_requests": null, "completed_requests": null, "failed_requests": null}}\n')
+            f.write('{"provider": "google", "job_id": "job-123", "user_assigned_status": "IN_PROGRESS", "latency_seconds": null, "service_reported_details": {"job_id": "job-123", "model": "models/gemini-2.5-flash-lite", "service_job_status": "JOB_STATE_PENDING", "created_at": "2025-10-12T06:00:00+00:00", "ended_at": null, "total_requests": null, "completed_requests": null, "failed_requests": null}}\n')
+            f.write('{"provider": "google", "job_id": "job-456", "user_assigned_status": "IN_PROGRESS", "latency_seconds": null, "service_reported_details": {"job_id": "job-456", "model": "models/gemini-2.5-flash-lite", "service_job_status": "JOB_STATE_PENDING", "created_at": "2025-10-10T06:00:00+00:00", "ended_at": null, "total_requests": null, "completed_requests": null, "failed_requests": null}}\n')
 
         # Mock the get_job_details_from_provider method
         def mock_get_job_details(job_id):

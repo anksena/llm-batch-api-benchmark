@@ -11,11 +11,11 @@ class UserStatus(Enum):
     UNKNOWN = "UNKNOWN"
 
 @dataclass
-class JobStatus:
+class ServiceReportedJobDetails:
     """A standardized dataclass for reporting the status of a batch job."""
     job_id: str
     model: str
-    status: str
+    service_job_status: str
     created_at: str
     ended_at: Optional[str] = None
     total_requests: Optional[int] = None
@@ -29,7 +29,7 @@ class JobReport:
     job_id: str
     user_assigned_status: UserStatus
     latency_seconds: Optional[float]
-    service_reported_details: JobStatus
+    service_reported_details: ServiceReportedJobDetails
 
     def to_json(self):
         # Custom JSON encoder to handle the Enum
@@ -53,9 +53,9 @@ class JobReport:
         if user_status_val:
             data['user_assigned_status'] = UserStatus(user_status_val)
             
-        # Handle nested JobStatus dataclass
+        # Handle nested ServiceReportedJobDetails dataclass
         status_details_val = data.get('service_reported_details')
         if status_details_val:
-            data['service_reported_details'] = JobStatus(**status_details_val)
+            data['service_reported_details'] = ServiceReportedJobDetails(**status_details_val)
             
         return cls(**data)
