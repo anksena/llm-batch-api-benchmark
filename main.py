@@ -17,7 +17,7 @@ class Provider(Enum):
 # Define an Enum for actions
 class Action(Enum):
     CREATE_JOBS = "create_jobs"
-    CHECK_JOBS = "check_jobs"
+    CHECK_RECENT_JOBS = "check_recent_jobs"
     CHECK_SINGLE_JOB = "check_single_job"
     CHECK_JOBS_FROM_FILE = "check_jobs_from_file"
     CANCEL_JOB = "cancel_job"
@@ -28,6 +28,7 @@ flags.DEFINE_enum("provider", None, [p.value for p in Provider], "The AI provide
 flags.mark_flag_as_required("provider")
 flags.DEFINE_multi_enum("action", [], [a.value for a in Action], "The action(s) to perform.")
 flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
+flags.DEFINE_integer("hours_ago", 36, "The number of hours ago to check for recent jobs.")
 flags.DEFINE_string("job_id", None, "The job ID to cancel.")
 flags.DEFINE_string("state_file", None, "The path to the state file to process.")
 flags.DEFINE_boolean("debug", False, "Enable debug logging.")
@@ -62,9 +63,9 @@ def main(argv):
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
             logger.info(f"Successfully created job IDs: {created_job_ids}")
 
-        if Action.CHECK_JOBS.value in FLAGS.action:
-            logger.info(f"Processing recent jobs for provider: {FLAGS.provider}")
-            provider.process_jobs(output_filename)
+        if Action.CHECK_RECENT_JOBS.value in FLAGS.action:
+            logger.info(f"Checking jobs from the last {FLAGS.hours_ago} hours for provider: {FLAGS.provider}")
+            provider.check_recent_jobs(output_filename, FLAGS.hours_ago)
 
         if Action.CHECK_SINGLE_JOB.value in FLAGS.action:
             if not FLAGS.job_id:

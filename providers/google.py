@@ -41,11 +41,11 @@ class GoogleProvider(BatchProvider):
         logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.name}")
         return job.name
 
-    def _get_job_list(self):
+    def _get_job_list(self, hours_ago):
         all_jobs = []
-        thirty_six_hours_ago = datetime.now(timezone.utc) - timedelta(hours=36)
+        time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
         for job in self.client.batches.list(config={'page_size': 10}):
-            if job.create_time < thirty_six_hours_ago:
+            if job.create_time < time_threshold:
                 break
             all_jobs.append(job)
         return all_jobs

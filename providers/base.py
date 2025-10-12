@@ -35,12 +35,12 @@ class BatchProvider(ABC):
                         print(report_json)
                         f_out.write(report_json + "\n")
 
-    def process_jobs(self, output_file):
-        """Processes recent jobs and appends reports to the output file."""
-        logger.info(f"Processing recent jobs for provider and appending to {output_file}...")
+    def check_recent_jobs(self, output_file, hours_ago):
+        """Checks all recent jobs and appends reports to the output file."""
+        logger.info(f"Checking recent jobs for provider and appending to {output_file}...")
 
         with open(output_file, "a") as f:
-            for job in self._get_job_list():
+            for job in self._get_job_list(hours_ago):
                 report = self._process_job(job)
                 if report:
                     f.write(report.to_json() + "\n")
