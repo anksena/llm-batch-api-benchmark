@@ -43,7 +43,9 @@ class BatchProvider(ABC):
             for job in self._get_job_list(hours_ago):
                 report = self._process_job(job)
                 if report:
-                    f.write(report.to_json() + "\n")
+                    report_json = report.to_json()
+                    print(report_json)
+                    f.write(report_json + "\n")
 
     @abstractmethod
     def _get_job_create_time(self, job):
