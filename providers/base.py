@@ -58,11 +58,6 @@ class BatchProvider(ABC):
         pass
 
     @abstractmethod
-    def list_models(self):
-        """Lists available models."""
-        pass
-
-    @abstractmethod
     def cancel_job(self, job_id):
         """Cancels a batch job."""
         pass

@@ -86,12 +86,6 @@ class GoogleProvider(BatchProvider):
         
         return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
-    def list_models(self):
-        logger.info("Listing available Gemini models supporting 'batchGenerateContent':")
-        for m in self.client.models.list():
-            if 'batchGenerateContent' in m.supported_actions:
-                logger.info(f"- {m.name}")
-
     def cancel_job(self, job_id):
         logger.info(f"Attempting to delete job (Google's equivalent of cancel): {job_id}")
         self.client.batches.delete(name=job_id)

@@ -91,11 +91,6 @@ class OpenAIProvider(BatchProvider):
         
         return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
-    def list_models(self):
-        logger.info("Listing available OpenAI models:")
-        for model in self.client.models.list().data:
-            logger.info(f"- {model.id}")
-
     def cancel_job(self, job_id):
         logger.info(f"Attempting to cancel job: {job_id}")
         cancelled_job = self.client.batches.cancel(job_id)

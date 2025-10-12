@@ -79,10 +79,6 @@ class AnthropicProvider(BatchProvider):
         
         return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
-    def list_models(self):
-        logger.warning("Anthropic model listing is not directly supported via a simple API call.")
-        logger.warning("Please refer to the official Anthropic documentation for available models.")
-
     def cancel_job(self, job_id):
         logger.info(f"Attempting to cancel job: {job_id}")
         cancelled_job = self.client.beta.messages.batches.cancel(job_id)
