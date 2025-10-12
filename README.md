@@ -81,6 +81,47 @@ python main.py openai list-models
 # For Google (lists models that support batch processing)
 python main.py google list-models
 
+## Batch Job States
+
+This section documents the batch job states for each provider as of October 12, 2025.
+
+### Google
+
+- **Source:** [https://ai.google.dev/gemini-api/docs/batch-api](https://ai.google.dev/gemini-api/docs/batch-api)
+- **Terminal States:**
+    - `JOB_STATE_SUCCEEDED`
+    - `JOB_STATE_FAILED`
+    - `JOB_STATE_CANCELLED`
+    - `JOB_STATE_EXPIRED`
+- **Non-Terminal States:**
+    - `JOB_STATE_PENDING`
+    - `BATCH_STATE_RUNNING`
+
+### OpenAI
+
+- **Source:** [https://platform.openai.com/docs/api-reference/batch](https://platform.openai.com/docs/api-reference/batch)
+- **Terminal States:**
+    - `completed`
+    - `failed`
+    - `cancelled`
+    - `expired`
+- **Non-Terminal States:**
+    - `validating`
+    - `in_progress`
+    - `cancelling`
+
+### Anthropic
+
+- **Source:** Inferred from the `providers/anthropic.py` file.
+- **Terminal States:**
+    - `completed`
+    - `ended`
+    - `cancelled`
+    - `failed`
+    - `expired`
+- **Non-Terminal States:**
+    - `in_progress`
+
 ## Known Issues
 
 - When running a Google batch job, you may see a `UserWarning: BATCH_STATE_RUNNING is not a valid JobState`. This is a known issue in the `google-genai` library and can be safely ignored. The script will continue to poll until the job reaches a final state.
