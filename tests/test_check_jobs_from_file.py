@@ -55,12 +55,48 @@ class TestCheckJobsFromFile(unittest.TestCase):
 
         # Verify the results
         with open("test_output.jsonl", "r") as f:
+            reports = {}
+            for line in f:
+                report = JobReport.from_json(line)
+                reports[report.job_id] = report
+            
+            self.assertEqual(len(reports), 2)
+            self.assertEqual(reports["job-123"].user_assigned_status, UserStatus.SUCCEEDED)
+            self.assertEqual(reports["job-456"].user_assigned_status, UserStatus.CANCELLED_TIMED_OUT)
+
+        # Clean up the test files
+        os.remove("test_state_file.jsonl")
+        os.remove("test_output.jsonl")
+
+    def test_ignore_completed_jobs(self):
+        provider = GoogleProvider(api_key="test")
+
+        # Create a mock state file
+        with open("test_state_file.jsonl", "w") as f:
+            f.write('{"provider": "google", "job_id": "job-123", "user_assigned_status": "SUCCEEDED", "latency_seconds": 123.45, "service_reported_details": {"job_id": "job-123", "model": "models/gemini-2.5-flash-lite", "service_job_status": "JOB_STATE_SUCCEEDED", "created_at": "2025-10-12T06:00:00+00:00", "ended_at": "2025-10-12T06:02:03.450000+00:00", "total_requests": null, "completed_requests": null, "failed_requests": null}}\n')
+            f.write('{"provider": "google", "job_id": "job-456", "user_assigned_status": "IN_PROGRESS", "latency_seconds": null, "service_reported_details": {"job_id": "job-456", "model": "models/gemini-2.5-flash-lite", "service_job_status": "JOB_STATE_PENDING", "created_at": "2025-10-12T06:00:00+00:00", "ended_at": null, "total_requests": null, "completed_requests": null, "failed_requests": null}}\n')
+
+        # Mock the get_job_details_from_provider method
+        def mock_get_job_details(job_id):
+            return MockGoogleJob(
+                name=job_id,
+                state="JOB_STATE_SUCCEEDED",
+                create_time=datetime.now(timezone.utc) - timedelta(hours=1),
+                end_time=datetime.now(timezone.utc)
+            )
+
+        provider.get_job_details_from_provider = MagicMock(side_effect=mock_get_job_details)
+
+        # Run the check_jobs_from_file method
+        provider.check_jobs_from_file("test_state_file.jsonl", "test_output.jsonl")
+
+        # Verify the results
+        provider.get_job_details_from_provider.assert_called_once_with("job-456")
+        with open("test_output.jsonl", "r") as f:
             lines = f.readlines()
-            self.assertEqual(len(lines), 2)
-            report1 = JobReport.from_json(lines[0])
-            report2 = JobReport.from_json(lines[1])
-            self.assertEqual(report1.user_assigned_status, UserStatus.SUCCEEDED)
-            self.assertEqual(report2.user_assigned_status, UserStatus.CANCELLED_TIMED_OUT)
+            self.assertEqual(len(lines), 1)
+            report = JobReport.from_json(lines[0])
+            self.assertEqual(report.user_assigned_status, UserStatus.SUCCEEDED)
 
         # Clean up the test files
         os.remove("test_state_file.jsonl")

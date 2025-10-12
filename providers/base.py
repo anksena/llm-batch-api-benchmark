@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from logger import get_logger
-from data_models import JobReport
+from data_models import JobReport, UserStatus
 
 logger = get_logger(__name__)
 
@@ -28,12 +28,13 @@ class BatchProvider(ABC):
         with open(state_file, "r") as f_in, open(output_file, "a") as f_out:
             for line in f_in:
                 job_report = JobReport.from_json(line)
-                if job_report.job_id:
-                    report = self.generate_job_report_for_user(job_report.job_id)
-                    if report:
-                        report_json = report.to_json()
-                        print(report_json)
-                        f_out.write(report_json + "\n")
+                if job_report.user_assigned_status == UserStatus.IN_PROGRESS:
+                    if job_report.job_id:
+                        report = self.generate_job_report_for_user(job_report.job_id)
+                        if report:
+                            report_json = report.to_json()
+                            print(report_json)
+                            f_out.write(report_json + "\n")
 
     def check_recent_jobs(self, output_file, hours_ago):
         """Checks all recent jobs and appends reports to the output file."""
@@ -45,7 +46,7 @@ class BatchProvider(ABC):
                 if report:
                     report_json = report.to_json()
                     print(report_json)
-                    f.write(report_json + "\n")
+                    f_out.write(report_json + "\n")
 
     @abstractmethod
     def _get_job_create_time(self, job):
