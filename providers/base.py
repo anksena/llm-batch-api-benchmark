@@ -28,7 +28,7 @@ class BatchProvider(ABC):
         with open(state_file, "r") as f_in, open(output_file, "a") as f_out:
             for line in f_in:
                 job_report = JobReport.from_json(line)
-                if job_report.user_assigned_status == UserStatus.IN_PROGRESS:
+                if not UserStatus.is_terminal(job_report.user_assigned_status):
                     if job_report.job_id:
                         report = self.generate_job_report_for_user(job_report.job_id)
                         if report:
