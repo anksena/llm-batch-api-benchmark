@@ -34,7 +34,7 @@ class JobReport:
 
     def to_json(self):
         # Custom JSON encoder to handle the Enum
-        return json.dumps(asdict(self), indent=2, default=lambda o: o.value)
+        return json.dumps(asdict(self), default=lambda o: o.value)
 
     @classmethod
     def from_json(cls, json_string):
