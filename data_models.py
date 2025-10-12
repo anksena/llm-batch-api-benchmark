@@ -2,7 +2,6 @@ from dataclasses import dataclass, asdict
 import json
 from typing import Optional
 from enum import Enum
-
 class UserStatus(Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
@@ -34,7 +33,16 @@ class JobReport:
 
     def to_json(self):
         # Custom JSON encoder to handle the Enum
-        return json.dumps(asdict(self), default=lambda o: o.value)
+        def default_serializer(o):
+            if isinstance(o, UserStatus):
+                return o.value
+            # Handle non-serializable objects by converting them to strings
+            try:
+                json.dumps(o)
+                return o
+            except TypeError:
+                return str(o)
+        return json.dumps(asdict(self), default=default_serializer)
 
     @classmethod
     def from_json(cls, json_string):

@@ -4,6 +4,32 @@ import os
 from unittest.mock import MagicMock
 from datetime import datetime, timedelta, timezone
 
+class MockGoogleJob:
+    def __init__(self, name, state, create_time, end_time):
+        self.name = name
+        self.state = MagicMock()
+        self.state.name = state
+        self.create_time = create_time
+        self.end_time = end_time
+        self.model = "models/gemini-2.5-flash-lite"
+
+class MockOpenAIJob:
+    def __init__(self, id, status, created_at, completed_at):
+        self.id = id
+        self.status = status
+        self.created_at = created_at
+        self.completed_at = completed_at
+        self.request_counts = MagicMock()
+        self.model = "gpt-4o-mini"
+
+class MockAnthropicJob:
+    def __init__(self, id, processing_status, created_at, ended_at):
+        self.id = id
+        self.processing_status = processing_status
+        self.created_at = created_at
+        self.ended_at = ended_at
+        self.request_counts = MagicMock()
+
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -16,157 +42,172 @@ class TestGoogleProvider(unittest.TestCase):
 
     def test_process_job_succeeded(self):
         provider = GoogleProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.name = "job-123"
-        mock_job.state.name = "JOB_STATE_SUCCEEDED"
-        mock_job.create_time = datetime.now(timezone.utc)
-        mock_job.end_time = datetime.now(timezone.utc)
+        mock_job = MockGoogleJob(
+            name="job-123",
+            state="JOB_STATE_SUCCEEDED",
+            create_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc)
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.SUCCEEDED)
 
     def test_process_job_failed(self):
         provider = GoogleProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.name = "job-123"
-        mock_job.state.name = "JOB_STATE_FAILED"
-        mock_job.create_time = datetime.now(timezone.utc)
-        mock_job.end_time = datetime.now(timezone.utc)
+        mock_job = MockGoogleJob(
+            name="job-123",
+            state="JOB_STATE_FAILED",
+            create_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc)
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.FAILED)
 
     def test_process_job_timed_out(self):
         provider = GoogleProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.name = "job-123"
-        mock_job.state.name = "JOB_STATE_PENDING"
-        mock_job.create_time = datetime.now(timezone.utc) - timedelta(hours=25)
-        mock_job.end_time = None
+        mock_job = MockGoogleJob(
+            name="job-123",
+            state="JOB_STATE_PENDING",
+            create_time=datetime.now(timezone.utc) - timedelta(hours=25),
+            end_time=None
+        )
         provider.cancel_job = MagicMock()
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_TIMED_OUT)
         provider.cancel_job.assert_called_once_with("job-123")
 
     def test_process_job_canceled_on_demand(self):
         provider = GoogleProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.name = "job-123"
-        mock_job.state.name = "JOB_STATE_CANCELLED"
-        mock_job.create_time = datetime.now(timezone.utc)
-        mock_job.end_time = datetime.now(timezone.utc)
+        mock_job = MockGoogleJob(
+            name="job-123",
+            state="JOB_STATE_CANCELLED",
+            create_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc)
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_ON_DEMAND)
 
 class TestOpenAIProvider(unittest.TestCase):
 
     def test_process_job_succeeded(self):
         provider = OpenAIProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.status = "completed"
-        mock_job.created_at = datetime.now(timezone.utc).timestamp()
-        mock_job.completed_at = datetime.now(timezone.utc).timestamp()
+        mock_job = MockOpenAIJob(
+            id="job-123",
+            status="completed",
+            created_at=datetime.now(timezone.utc).timestamp(),
+            completed_at=datetime.now(timezone.utc).timestamp()
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.SUCCEEDED)
 
     def test_process_job_failed(self):
         provider = OpenAIProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.status = "failed"
-        mock_job.created_at = datetime.now(timezone.utc).timestamp()
-        mock_job.completed_at = None
+        mock_job = MockOpenAIJob(
+            id="job-123",
+            status="failed",
+            created_at=datetime.now(timezone.utc).timestamp(),
+            completed_at=None
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.FAILED)
 
     def test_process_job_timed_out(self):
         provider = OpenAIProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.status = "in_progress"
-        mock_job.created_at = (datetime.now(timezone.utc) - timedelta(hours=25)).timestamp()
-        mock_job.completed_at = None
+        mock_job = MockOpenAIJob(
+            id="job-123",
+            status="in_progress",
+            created_at=(datetime.now(timezone.utc) - timedelta(hours=25)).timestamp(),
+            completed_at=None
+        )
         provider.cancel_job = MagicMock()
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_TIMED_OUT)
         provider.cancel_job.assert_called_once_with("job-123")
 
     def test_process_job_canceled_on_demand(self):
         provider = OpenAIProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.status = "cancelled"
-        mock_job.created_at = datetime.now(timezone.utc).timestamp()
-        mock_job.completed_at = None
+        mock_job = MockOpenAIJob(
+            id="job-123",
+            status="cancelled",
+            created_at=datetime.now(timezone.utc).timestamp(),
+            completed_at=None
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_ON_DEMAND)
 
 class TestAnthropicProvider(unittest.TestCase):
 
     def test_process_job_succeeded(self):
         provider = AnthropicProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.processing_status = "completed"
-        mock_job.created_at = datetime.now(timezone.utc)
-        mock_job.ended_at = datetime.now(timezone.utc)
+        mock_job = MockAnthropicJob(
+            id="job-123",
+            processing_status="completed",
+            created_at=datetime.now(timezone.utc),
+            ended_at=datetime.now(timezone.utc)
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.SUCCEEDED)
 
     def test_process_job_succeeded_when_ended(self):
         provider = AnthropicProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.processing_status = "ended"
+        mock_job = MockAnthropicJob(
+            id="job-123",
+            processing_status="ended",
+            created_at=datetime.now(timezone.utc),
+            ended_at=datetime.now(timezone.utc)
+        )
         mock_job.request_counts.succeeded = 1
-        mock_job.created_at = datetime.now(timezone.utc)
-        mock_job.ended_at = datetime.now(timezone.utc)
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.SUCCEEDED)
 
     def test_process_job_failed(self):
         provider = AnthropicProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.processing_status = "failed"
-        mock_job.created_at = datetime.now(timezone.utc)
-        mock_job.ended_at = datetime.now(timezone.utc)
+        mock_job = MockAnthropicJob(
+            id="job-123",
+            processing_status="failed",
+            created_at=datetime.now(timezone.utc),
+            ended_at=datetime.now(timezone.utc)
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.FAILED)
 
     def test_process_job_timed_out(self):
         provider = AnthropicProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.processing_status = "in_progress"
-        mock_job.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
-        mock_job.ended_at = None
+        mock_job = MockAnthropicJob(
+            id="job-123",
+            processing_status="in_progress",
+            created_at=datetime.now(timezone.utc) - timedelta(hours=25),
+            ended_at=None
+        )
         provider.cancel_job = MagicMock()
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_TIMED_OUT)
         provider.cancel_job.assert_called_once_with("job-123")
 
     def test_process_job_canceled_on_demand(self):
         provider = AnthropicProvider(api_key="test")
-        mock_job = MagicMock()
-        mock_job.id = "job-123"
-        mock_job.processing_status = "cancelled"
-        mock_job.created_at = datetime.now(timezone.utc)
-        mock_job.ended_at = datetime.now(timezone.utc)
+        mock_job = MockAnthropicJob(
+            id="job-123",
+            processing_status="cancelled",
+            created_at=datetime.now(timezone.utc),
+            ended_at=datetime.now(timezone.utc)
+        )
 
-        report = provider._process_job(mock_job)
+        report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_ON_DEMAND)
 
+from absl.testing import absltest
+
 if __name__ == '__main__':
-    unittest.main()
+    absltest.main()
