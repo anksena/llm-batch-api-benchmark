@@ -10,6 +10,10 @@ class UserStatus(Enum):
     CANCELLED_ON_DEMAND = "CANCELLED_ON_DEMAND"
     UNKNOWN = "UNKNOWN"
 
+    @classmethod
+    def is_terminal(cls, status):
+        return status in [cls.SUCCEEDED, cls.FAILED, cls.CANCELLED_TIMED_OUT, cls.CANCELLED_ON_DEMAND]
+
 @dataclass
 class ServiceReportedJobDetails:
     """A standardized dataclass for reporting the status of a batch job."""
