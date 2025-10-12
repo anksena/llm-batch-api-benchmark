@@ -53,7 +53,7 @@ class GoogleProvider(BatchProvider):
     def _get_job_create_time(self, job):
         return job.create_time
 
-    def _process_job(self, job):
+    def _create_report_from_provider_job(self, job):
         latency = None
         if job.end_time:
             latency = round((job.end_time - job.create_time).total_seconds(), 2)
@@ -97,8 +97,8 @@ class GoogleProvider(BatchProvider):
         self.client.batches.delete(name=job_id)
         logger.info(f"Successfully sent delete request for job: {job_id}")
 
-    def check_single_job(self, job_id):
+    def get_job_report(self, job_id):
         job = self.client.batches.get(name=job_id)
-        report = self._process_job(job)
+        report = self._create_report_from_provider_job(job)
         if report:
             return report

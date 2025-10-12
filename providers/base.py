@@ -29,7 +29,7 @@ class BatchProvider(ABC):
             for line in f_in:
                 job_report = JobReport.from_json(line)
                 if job_report.job_id:
-                    report = self.check_single_job(job_report.job_id)
+                    report = self.get_job_report(job_report.job_id)
                     if report:
                         report_json = report.to_json()
                         print(report_json)
@@ -41,7 +41,7 @@ class BatchProvider(ABC):
 
         with open(output_file, "a") as f:
             for job in self._get_job_list(hours_ago):
-                report = self._process_job(job)
+                report = self._create_report_from_provider_job(job)
                 if report:
                     report_json = report.to_json()
                     print(report_json)
@@ -68,8 +68,8 @@ class BatchProvider(ABC):
         pass
 
     @abstractmethod
-    def check_single_job(self, job_id):
-        """Checks the status of a single batch job."""
+    def get_job_report(self, job_id):
+        """Gets the report for a single batch job."""
         pass
 
     def _should_skip_job(self, job_create_time):

@@ -43,7 +43,7 @@ class AnthropicProvider(BatchProvider):
     def _get_job_create_time(self, job):
         return job.created_at
 
-    def _process_job(self, job):
+    def _create_report_from_provider_job(self, job):
         latency = None
         if job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
@@ -88,8 +88,8 @@ class AnthropicProvider(BatchProvider):
         cancelled_job = self.client.beta.messages.batches.cancel(job_id)
         logger.info(f"Job {cancelled_job.id} is now {cancelled_job.processing_status}")
 
-    def check_single_job(self, job_id):
+    def get_job_report(self, job_id):
         job = self.client.beta.messages.batches.retrieve(job_id)
-        report = self._process_job(job)
+        report = self._create_report_from_provider_job(job)
         if report:
             return report
