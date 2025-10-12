@@ -2,6 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from logger import get_logger
+from data_models import JobReport
 
 logger = get_logger(__name__)
 
@@ -26,10 +27,9 @@ class BatchProvider(ABC):
         """Processes a state file of jobs and checks their status."""
         with open(state_file, "r") as f_in, open(output_file, "a") as f_out:
             for line in f_in:
-                job_data = json.loads(line)
-                job_id = job_data.get("job_id")
-                if job_id:
-                    report = self.check_single_job(job_id)
+                job_report = JobReport.from_json(line)
+                if job_report.job_id:
+                    report = self.check_single_job(job_report.job_id)
                     if report:
                         report_json = report.to_json()
                         print(report_json)

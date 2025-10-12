@@ -35,3 +35,19 @@ class JobReport:
     def to_json(self):
         # Custom JSON encoder to handle the Enum
         return json.dumps(asdict(self), indent=2, default=lambda o: o.value)
+
+    @classmethod
+    def from_json(cls, json_string):
+        data = json.loads(json_string)
+        
+        # Handle UserStatus enum
+        user_status_val = data.get('user_assigned_status')
+        if user_status_val:
+            data['user_assigned_status'] = UserStatus(user_status_val)
+            
+        # Handle nested JobStatus dataclass
+        status_details_val = data.get('service_reported_details')
+        if status_details_val:
+            data['service_reported_details'] = JobStatus(**status_details_val)
+            
+        return cls(**data)
