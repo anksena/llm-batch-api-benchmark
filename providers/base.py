@@ -29,7 +29,7 @@ class BatchProvider(ABC):
             for line in f_in:
                 job_report = JobReport.from_json(line)
                 if job_report.job_id:
-                    report = self.get_job_report(job_report.job_id)
+                    report = self.generate_job_report_for_user(job_report.job_id)
                     if report:
                         report_json = report.to_json()
                         print(report_json)
@@ -67,9 +67,16 @@ class BatchProvider(ABC):
         """Cancels a batch job."""
         pass
 
-    @abstractmethod
-    def get_job_report(self, job_id):
+    def generate_job_report_for_user(self, job_id):
         """Gets the report for a single batch job."""
+        job = self.get_job_details_from_provider(job_id)
+        report = self._create_report_from_provider_job(job)
+        if report:
+            return report
+
+    @abstractmethod
+    def get_job_details_from_provider(self, job_id):
+        """Gets the provider-specific job object."""
         pass
 
     def _should_skip_job(self, job_create_time):

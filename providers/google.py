@@ -97,8 +97,5 @@ class GoogleProvider(BatchProvider):
         self.client.batches.delete(name=job_id)
         logger.info(f"Successfully sent delete request for job: {job_id}")
 
-    def get_job_report(self, job_id):
-        job = self.client.batches.get(name=job_id)
-        report = self._create_report_from_provider_job(job)
-        if report:
-            return report
+    def get_job_details_from_provider(self, job_id):
+        return self.client.batches.get(name=job_id)

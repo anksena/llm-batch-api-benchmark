@@ -71,7 +71,7 @@ def main(argv):
             if not FLAGS.job_id:
                 raise ValueError("The --job_id flag is required for the 'check_single_job' action.")
             logger.info(f"Checking status of job: {FLAGS.job_id}")
-            provider.get_job_report(FLAGS.job_id)
+            provider.generate_job_report_for_user(FLAGS.job_id)
 
         if Action.CHECK_JOBS_FROM_FILE.value in FLAGS.action:
             if not FLAGS.state_file:

@@ -88,8 +88,5 @@ class AnthropicProvider(BatchProvider):
         cancelled_job = self.client.beta.messages.batches.cancel(job_id)
         logger.info(f"Job {cancelled_job.id} is now {cancelled_job.processing_status}")
 
-    def get_job_report(self, job_id):
-        job = self.client.beta.messages.batches.retrieve(job_id)
-        report = self._create_report_from_provider_job(job)
-        if report:
-            return report
+    def get_job_details_from_provider(self, job_id):
+        return self.client.beta.messages.batches.retrieve(job_id)
