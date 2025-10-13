@@ -123,7 +123,7 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
     - `ended`
 - **Non-Terminal States:**
     - `in_progress`
-- **Request Result Types:**
+- **Individual Request Result Types:**
     - `succeeded`
     - `errored`
     - `canceled`
