@@ -72,18 +72,22 @@ python main.py openai cancel --job_id <YOUR_OPENAI_JOB_ID>
 python main.py google cancel --job_id <YOUR_GOOGLE_JOB_ID>
 ```
 
-### List Supported Models
-
-```bash
-# For OpenAI
-python main.py openai list-models
-
-# For Google (lists models that support batch processing)
-python main.py google list-models
-
 ## Batch Job States
 
 This section documents the batch job states for each provider as of October 12, 2025.
+
+### User-Assigned Statuses
+
+The `UserStatus` enum in `data_models.py` defines a set of standardized statuses that are used throughout the application. This provides a consistent way to handle job states, regardless of the provider.
+
+| `UserStatus`          | Description                                                              |
+| --------------------- | ------------------------------------------------------------------------ |
+| `SUCCEEDED`           | The job completed successfully.                                          |
+| `FAILED`              | The job failed for a reason other than cancellation or timeout.          |
+| `CANCELLED_TIMED_OUT` | The job was cancelled because it exceeded the 24-hour timeout.           |
+| `IN_PROGRESS`         | The job is still being processed and has not exceeded the 24-hour timeout. |
+| `CANCELLED_ON_DEMAND` | The job was cancelled by a user request.                                 |
+| `UNKNOWN`             | The job is in an unknown or unexpected state.                            |
 
 ### Google
 
@@ -121,6 +125,35 @@ This section documents the batch job states for each provider as of October 12, 
     - `expired`
 - **Non-Terminal States:**
     - `in_progress`
+
+### Status Mapping
+
+This section documents the mapping from the provider-specific job statuses to the unified `UserStatus` enum.
+
+| Provider  | Service Status          | `UserStatus`            | Notes                                                                 |
+| --------- | ----------------------- | ----------------------- | --------------------------------------------------------------------- |
+| Google    | `JOB_STATE_SUCCEEDED`   | `SUCCEEDED`             |                                                                       |
+|           | `JOB_STATE_FAILED`      | `FAILED`                |                                                                       |
+|           | `JOB_STATE_EXPIRED`     | `FAILED`                |                                                                       |
+|           | `JOB_STATE_CANCELLED`   | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
+|           | `JOB_STATE_CANCELLED`   | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
+|           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
+|           | `BATCH_STATE_RUNNING`   | `IN_PROGRESS`           |                                                                       |
+| OpenAI    | `completed`             | `SUCCEEDED`             |                                                                       |
+|           | `failed`                | `FAILED`                |                                                                       |
+|           | `expired`               | `FAILED`                |                                                                       |
+|           | `cancelled`             | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
+|           | `cancelled`             | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
+|           | `validating`            | `IN_PROGRESS`           |                                                                       |
+|           | `in_progress`           | `IN_PROGRESS`           |                                                                       |
+|           | `cancelling`            | `IN_PROGRESS`           |                                                                       |
+| Anthropic | `completed`             | `SUCCEEDED`             |                                                                       |
+|           | `ended`                 | `SUCCEEDED`             |                                                                       |
+|           | `failed`                | `FAILED`                |                                                                       |
+|           | `expired`               | `FAILED`                |                                                                       |
+|           | `cancelled`             | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
+|           | `cancelled`             | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
+|           | `in_progress`           | `IN_PROGRESS`           |                                                                       |
 
 ## Known Issues
 
