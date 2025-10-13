@@ -85,13 +85,13 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
 | `SUCCEEDED`           | The job completed successfully.                                          |
 | `FAILED`              | The job failed for a reason other than cancellation or timeout.          |
 | `CANCELLED_TIMED_OUT` | The job was cancelled because it exceeded the 24-hour timeout.           |
-| `IN_PROGRESS`         | The job is still being processed and has not exceeded the 24-hour timeout. |
+| `IN_PROGRESS`         | The job is still being processed and hasn't exceeded 24-hour timeout. |
 | `CANCELLED_ON_DEMAND` | The job was cancelled by a user request.                                 |
 | `UNKNOWN`             | The job is in an unknown or unexpected state.                            |
 
 ### Google
 
-- **Source:** [https://ai.google.dev/gemini-api/docs/batch-api](https://ai.google.dev/gemini-api/docs/batch-api)
+- **Source:** [https://ai.google.dev/gemini-api/docs/batch-api#batch-job-status](https://ai.google.dev/gemini-api/docs/batch-api#batch-job-status)
 - **Terminal States:**
     - `JOB_STATE_SUCCEEDED`
     - `JOB_STATE_FAILED`
@@ -104,6 +104,7 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
 ### OpenAI
 
 - **Source:** [https://platform.openai.com/docs/api-reference/batch](https://platform.openai.com/docs/api-reference/batch)
+- **FAQ:** [https://help.openai.com/en/articles/9197833-batch-api-faq](https://help.openai.com/en/articles/9197833-batch-api-faq)
 - **Terminal States:**
     - `completed`
     - `failed`
@@ -112,19 +113,21 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
 - **Non-Terminal States:**
     - `validating`
     - `in_progress`
+    - `finalizing`
     - `cancelling`
 
 ### Anthropic
 
-- **Source:** Inferred from the `providers/anthropic.py` file.
+- **Source:** [https://docs.claude.com/en/docs/build-with-claude/batch-processing#tracking-your-batch](https://docs.claude.com/en/docs/build-with-claude/batch-processing#tracking-your-batch)
 - **Terminal States:**
-    - `completed`
     - `ended`
-    - `cancelled`
-    - `failed`
-    - `expired`
 - **Non-Terminal States:**
     - `in_progress`
+- **Request Result Types:**
+    - `succeeded`
+    - `errored`
+    - `canceled`
+    - `expired`
 
 ### Status Mapping
 
@@ -134,25 +137,23 @@ This section documents the mapping from the provider-specific job statuses to th
 | --------- | ----------------------- | ----------------------- | --------------------------------------------------------------------- |
 | Google    | `JOB_STATE_SUCCEEDED`   | `SUCCEEDED`             |                                                                       |
 |           | `JOB_STATE_FAILED`      | `FAILED`                |                                                                       |
-|           | `JOB_STATE_EXPIRED`     | `FAILED`                |                                                                       |
+|           | `JOB_STATE_EXPIRED`     | `CANCELLED_TIMED_OUT`   | The job expired after 48 hours.                                       |
 |           | `JOB_STATE_CANCELLED`   | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
 |           | `JOB_STATE_CANCELLED`   | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
 |           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
 |           | `BATCH_STATE_RUNNING`   | `IN_PROGRESS`           |                                                                       |
 | OpenAI    | `completed`             | `SUCCEEDED`             |                                                                       |
 |           | `failed`                | `FAILED`                |                                                                       |
-|           | `expired`               | `FAILED`                |                                                                       |
-|           | `cancelled`             | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
-|           | `cancelled`             | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
+|           | `expired`               | `CANCELLED_TIMED_OUT`   | The batch could not be completed within the SLA time window.          |
+|           | `cancelled`             | `CANCELLED_ON_DEMAND`   |                                                                       |
 |           | `validating`            | `IN_PROGRESS`           |                                                                       |
 |           | `in_progress`           | `IN_PROGRESS`           |                                                                       |
+|           | `finalizing`            | `IN_PROGRESS`           |                                                                       |
 |           | `cancelling`            | `IN_PROGRESS`           |                                                                       |
-| Anthropic | `completed`             | `SUCCEEDED`             |                                                                       |
-|           | `ended`                 | `SUCCEEDED`             |                                                                       |
-|           | `failed`                | `FAILED`                |                                                                       |
-|           | `expired`               | `FAILED`                |                                                                       |
-|           | `cancelled`             | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
-|           | `cancelled`             | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
+| Anthropic | `ended` (with `succeeded` requests) | `SUCCEEDED`             |                                                                       |
+|           | `ended` (with `errored` requests) | `FAILED`                |                                                                       |
+|           | `ended` (with `expired` requests) | `CANCELLED_TIMED_OUT`   |                                                                       |
+|           | `ended` (with `canceled` requests) | `CANCELLED_ON_DEMAND`   |                                                                       |
 |           | `in_progress`           | `IN_PROGRESS`           |                                                                       |
 
 ## Known Issues
