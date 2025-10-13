@@ -5,6 +5,17 @@ from openai import OpenAI
 from .base import BatchProvider
 from logger import get_logger
 from data_models import ServiceReportedJobDetails, JobReport, UserStatus
+from enum import Enum
+
+class OpenAIJobStatus(Enum):
+    VALIDATING = "validating"
+    IN_PROGRESS = "in_progress"
+    FINALIZING = "finalizing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLING = "cancelling"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
 
 logger = get_logger(__name__)
 
@@ -59,6 +70,11 @@ class OpenAIProvider(BatchProvider):
         latency = None
         if job.completed_at:
             latency = round(job.completed_at - job.created_at, 2)
+
+        try:
+            OpenAIJobStatus(job.status)
+        except ValueError:
+            logger.warning(f"Unknown OpenAI job status: {job.status}")
 
         status = ServiceReportedJobDetails(
             job_id=job.id,

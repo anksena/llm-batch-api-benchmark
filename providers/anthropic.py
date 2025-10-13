@@ -5,6 +5,11 @@ from anthropic import Anthropic
 from .base import BatchProvider
 from logger import get_logger
 from data_models import ServiceReportedJobDetails, JobReport, UserStatus
+from enum import Enum
+
+class AnthropicJobStatus(Enum):
+    IN_PROGRESS = "in_progress"
+    ENDED = "ended"
 
 logger = get_logger(__name__)
 
@@ -47,6 +52,11 @@ class AnthropicProvider(BatchProvider):
         latency = None
         if job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
+
+        try:
+            AnthropicJobStatus(job.processing_status)
+        except ValueError:
+            logger.warning(f"Unknown Anthropic job status: {job.processing_status}")
 
         status = ServiceReportedJobDetails(
             job_id=job.id,

@@ -5,6 +5,15 @@ from google import genai as google_genai
 from .base import BatchProvider
 from logger import get_logger
 from data_models import ServiceReportedJobDetails, JobReport, UserStatus
+from enum import Enum
+
+class GoogleJobStatus(Enum):
+    JOB_STATE_PENDING = "JOB_STATE_PENDING"
+    JOB_STATE_RUNNING = "JOB_STATE_RUNNING"
+    JOB_STATE_SUCCEEDED = "JOB_STATE_SUCCEEDED"
+    JOB_STATE_FAILED = "JOB_STATE_FAILED"
+    JOB_STATE_CANCELLED = "JOB_STATE_CANCELLED"
+    JOB_STATE_EXPIRED = "JOB_STATE_EXPIRED"
 
 logger = get_logger(__name__)
 
@@ -57,6 +66,11 @@ class GoogleProvider(BatchProvider):
         latency = None
         if job.end_time:
             latency = round((job.end_time - job.create_time).total_seconds(), 2)
+
+        try:
+            GoogleJobStatus(job.state.name)
+        except ValueError:
+            logger.warning(f"Unknown Google job status: {job.state.name}")
 
         status = ServiceReportedJobDetails(
             job_id=job.name,
