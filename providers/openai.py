@@ -22,6 +22,14 @@ logger = get_logger(__name__)
 class OpenAIProvider(BatchProvider):
     """Batch processing provider for OpenAI."""
 
+    @property
+    def _job_status_enum(self):
+        return OpenAIJobStatus
+
+    @property
+    def _job_status_attribute(self):
+        return "status"
+
     def _initialize_client(self, api_key):
         return OpenAI(api_key=api_key)
 
@@ -71,11 +79,6 @@ class OpenAIProvider(BatchProvider):
         if job.completed_at:
             latency = round(job.completed_at - job.created_at, 2)
 
-        try:
-            OpenAIJobStatus(job.status)
-        except ValueError:
-            logger.warning(f"Unknown OpenAI job status: {job.status}")
-
         status = ServiceReportedJobDetails(
             job_id=job.id,
             model=job.model,
@@ -97,7 +100,7 @@ class OpenAIProvider(BatchProvider):
                 user_status = UserStatus.CANCELLED_ON_DEMAND
         elif job.status in ('failed', 'expired'):
             user_status = UserStatus.FAILED
-        elif job.status in ('validating', 'in_progress'):
+        elif job.status in ('validating', 'in_progress', 'finalizing', 'cancelling'):
             if self._should_cancel_for_timeout(datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
                 logger.warning(f"Job {job.id} has timed out. Cancelling...")

@@ -20,6 +20,14 @@ logger = get_logger(__name__)
 class GoogleProvider(BatchProvider):
     """Batch processing provider for Google."""
 
+    @property
+    def _job_status_enum(self):
+        return GoogleJobStatus
+
+    @property
+    def _job_status_attribute(self):
+        return "state.name"
+
     def _initialize_client(self, api_key):
         return google_genai.Client(api_key=api_key)
 
@@ -66,11 +74,6 @@ class GoogleProvider(BatchProvider):
         latency = None
         if job.end_time:
             latency = round((job.end_time - job.create_time).total_seconds(), 2)
-
-        try:
-            GoogleJobStatus(job.state.name)
-        except ValueError:
-            logger.warning(f"Unknown Google job status: {job.state.name}")
 
         status = ServiceReportedJobDetails(
             job_id=job.name,

@@ -42,7 +42,7 @@ class BatchProvider(ABC):
 
         with open(output_file, "a") as f:
             for job in self._get_job_list(hours_ago):
-                report = self._create_report_from_provider_job(job)
+                report = self._validate_and_create_report(job)
                 if report:
                     report_json = report.to_json()
                     print(report_json)
@@ -63,12 +63,42 @@ class BatchProvider(ABC):
         """Cancels a batch job."""
         pass
 
+    def _validate_and_create_report(self, job):
+        """Validates the job status and creates a JobReport."""
+        status_value = None
+        try:
+            # Helper to get nested attributes
+            def rgetattr(obj, attr):
+                for a in attr.split('.'):
+                    obj = getattr(obj, a)
+                return obj
+            status_value = rgetattr(job, self._job_status_attribute)
+            self._job_status_enum(status_value)
+        except (ValueError, AttributeError):
+            logger.warning(f"Unknown job status: {status_value}")
+        return self._create_report_from_provider_job(job)
+
+    @abstractmethod
+    def _create_report_from_provider_job(self, job):
+        """Creates a JobReport from a provider-specific job object."""
+        pass
+
     def generate_job_report_for_user(self, job_id):
         """Gets the report for a single batch job."""
         job = self.get_job_details_from_provider(job_id)
-        report = self._create_report_from_provider_job(job)
+        report = self._validate_and_create_report(job)
         if report:
             return report
+
+    @property
+    @abstractmethod
+    def _job_status_enum(self):
+        pass
+
+    @property
+    @abstractmethod
+    def _job_status_attribute(self):
+        pass
 
     @abstractmethod
     def get_job_details_from_provider(self, job_id):

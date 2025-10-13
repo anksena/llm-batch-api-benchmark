@@ -18,6 +18,14 @@ class AnthropicProvider(BatchProvider):
 
     MODEL_NAME = "claude-3-haiku-20240307"
 
+    @property
+    def _job_status_enum(self):
+        return AnthropicJobStatus
+
+    @property
+    def _job_status_attribute(self):
+        return "processing_status"
+
     def _initialize_client(self, api_key):
         return Anthropic(api_key=api_key)
 
@@ -52,11 +60,6 @@ class AnthropicProvider(BatchProvider):
         latency = None
         if job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
-
-        try:
-            AnthropicJobStatus(job.processing_status)
-        except ValueError:
-            logger.warning(f"Unknown Anthropic job status: {job.processing_status}")
 
         status = ServiceReportedJobDetails(
             job_id=job.id,
