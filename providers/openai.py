@@ -98,8 +98,10 @@ class OpenAIProvider(BatchProvider):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
             else:
                 user_status = UserStatus.CANCELLED_ON_DEMAND
-        elif job.status in ('failed', 'expired'):
+        elif job.status == 'failed':
             user_status = UserStatus.FAILED
+        elif job.status == 'expired':
+            user_status = UserStatus.CANCELLED_TIMED_OUT
         elif job.status in ('validating', 'in_progress', 'finalizing', 'cancelling'):
             if self._should_cancel_for_timeout(datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
@@ -117,3 +119,6 @@ class OpenAIProvider(BatchProvider):
 
     def get_job_details_from_provider(self, job_id):
         return self.client.batches.retrieve(batch_id=job_id)
+
+    def get_provider_name(self):
+        return "openai"
