@@ -21,6 +21,12 @@ from data_models import JobReport, UserStatus
 
 class TestIgnoreCompletedJobs(unittest.TestCase):
 
+    def setUp(self):
+        if os.path.exists("test_output.jsonl"):
+            os.remove("test_output.jsonl")
+        if os.path.exists("test_state_file.jsonl"):
+            os.remove("test_state_file.jsonl")
+
     def test_ignore_completed_jobs(self):
         provider = GoogleProvider(api_key="test")
 
