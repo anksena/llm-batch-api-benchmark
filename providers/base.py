@@ -63,6 +63,11 @@ class BatchProvider(ABC):
         """Cancels a batch job."""
         pass
 
+    @abstractmethod
+    def get_provider_name(self):
+        """Returns the name of the provider."""
+        pass
+
     def _validate_and_create_report(self, job):
         """Validates the job status and creates a JobReport."""
         status_value = None

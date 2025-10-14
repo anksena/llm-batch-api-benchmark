@@ -91,8 +91,10 @@ class GoogleProvider(BatchProvider):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
             else:
                 user_status = UserStatus.CANCELLED_ON_DEMAND
-        elif job.state.name in ('JOB_STATE_FAILED', 'JOB_STATE_EXPIRED'):
+        elif job.state.name == 'JOB_STATE_FAILED':
             user_status = UserStatus.FAILED
+        elif job.state.name == 'JOB_STATE_EXPIRED':
+            user_status = UserStatus.CANCELLED_TIMED_OUT
         elif job.state.name in ('JOB_STATE_PENDING', 'BATCH_STATE_RUNNING'):
             if self._should_cancel_for_timeout(job.create_time):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
@@ -110,3 +112,6 @@ class GoogleProvider(BatchProvider):
 
     def get_job_details_from_provider(self, job_id):
         return self.client.batches.get(name=job_id)
+
+    def get_provider_name(self):
+        return "google"
