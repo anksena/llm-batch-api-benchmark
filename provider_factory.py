@@ -22,6 +22,7 @@ PROVIDER_REGISTRY = {
     }
 }
 
+
 def get_provider(provider_name):
     """
     Factory function to get a provider instance from the registry.
@@ -30,13 +31,16 @@ def get_provider(provider_name):
     provider_config = PROVIDER_REGISTRY.get(provider_name)
 
     if not provider_config:
-        raise ValueError(f"Unsupported provider. Choose from: {list(PROVIDER_REGISTRY.keys())}")
+        raise ValueError(
+            f"Unsupported provider. Choose from: {list(PROVIDER_REGISTRY.keys())}"
+        )
 
     api_key_env = provider_config["api_key_env"]
     api_key = os.getenv(api_key_env)
-    
+
     if not api_key:
-        raise ValueError(f"API key environment variable '{api_key_env}' not set.")
+        raise ValueError(
+            f"API key environment variable '{api_key_env}' not set.")
 
     provider_class = provider_config["class"]
     return provider_class(api_key)

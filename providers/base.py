@@ -6,6 +6,7 @@ from data_models import JobReport, UserStatus, ProviderJobStatus
 
 logger = get_logger(__name__)
 
+
 class BatchProvider(ABC):
     """Abstract base class for a batch processing provider."""
 
@@ -30,7 +31,8 @@ class BatchProvider(ABC):
                 job_report = JobReport.from_json(line)
                 if not UserStatus.is_terminal(job_report.user_assigned_status):
                     if job_report.job_id:
-                        report = self.generate_job_report_for_user(job_report.job_id)
+                        report = self.generate_job_report_for_user(
+                            job_report.job_id)
                         if report:
                             report_json = report.to_json()
                             print(report_json)
@@ -38,7 +40,9 @@ class BatchProvider(ABC):
 
     def check_recent_jobs(self, output_file, hours_ago):
         """Checks all recent jobs and appends reports to the output file."""
-        logger.info(f"Checking recent jobs for provider and appending to {output_file}...")
+        logger.info(
+            f"Checking recent jobs for provider and appending to {output_file}..."
+        )
 
         with open(output_file, "a") as f:
             for job in self._get_job_list(hours_ago):
@@ -70,18 +74,21 @@ class BatchProvider(ABC):
 
     def _validate_and_create_report(self, job):
         """Validates the job status and creates a JobReport."""
+
         # Helper to get nested attributes
         def rgetattr(obj, attr):
             for a in attr.split('.'):
                 obj = getattr(obj, a)
             return obj
+
         status_value = rgetattr(job, self._job_status_attribute)
 
         provider_name = self.get_provider_name().upper()
         known_statuses = getattr(ProviderJobStatus, provider_name, [])
-        
+
         if status_value not in known_statuses:
-            raise ValueError(f"Unknown job status for {provider_name}: {status_value}")
+            raise ValueError(
+                f"Unknown job status for {provider_name}: {status_value}")
 
         return self._create_report_from_provider_job(job)
 

@@ -6,9 +6,11 @@ from unittest.mock import MagicMock, patch
 from absl import flags
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                '..')))
 
 from main import main as main_app
+
 
 class TestMainApp(unittest.TestCase):
 
@@ -18,7 +20,8 @@ class TestMainApp(unittest.TestCase):
 
     @patch('main.load_dotenv')
     @patch('main.get_provider')
-    def test_create_jobs_respects_num_jobs_flag(self, mock_get_provider, mock_load_dotenv):
+    def test_create_jobs_respects_num_jobs_flag(self, mock_get_provider,
+                                                mock_load_dotenv):
         # Arrange
         mock_provider = MagicMock()
         mock_provider.create_jobs.return_value = ["job-1", "job-2", "job-3"]
@@ -30,9 +33,7 @@ class TestMainApp(unittest.TestCase):
         mock_get_provider.return_value = mock_provider
 
         test_args = [
-            "main.py",
-            "--provider=google",
-            "--action=create_jobs",
+            "main.py", "--provider=google", "--action=create_jobs",
             "--num_jobs=3"
         ]
 
@@ -44,25 +45,26 @@ class TestMainApp(unittest.TestCase):
 
         # Assert
         mock_provider.create_jobs.assert_called_once_with(3)
-        self.assertEqual(mock_provider.generate_job_report_for_user.call_count, 3)
-        
+        self.assertEqual(mock_provider.generate_job_report_for_user.call_count,
+                         3)
+
         # Verify that the output file was written to with the correct number of lines
         mock_file().write.assert_called()
         self.assertEqual(mock_file().write.call_count, 3)
 
     @patch('main.load_dotenv')
     @patch('main.get_provider')
-    def test_output_filename_is_standardized(self, mock_get_provider, mock_load_dotenv):
+    def test_output_filename_is_standardized(self, mock_get_provider,
+                                             mock_load_dotenv):
         # Arrange
         mock_provider = MagicMock()
         mock_provider.create_jobs.return_value = ["job-1"]
-        mock_provider.generate_job_report_for_user.return_value = MagicMock(to_json=lambda: '{"job_id": "job-1"}')
+        mock_provider.generate_job_report_for_user.return_value = MagicMock(
+            to_json=lambda: '{"job_id": "job-1"}')
         mock_get_provider.return_value = mock_provider
 
         test_args = [
-            "main.py",
-            "--provider=openai",
-            "--action=create_jobs",
+            "main.py", "--provider=openai", "--action=create_jobs",
             "--num_jobs=1"
         ]
 
@@ -75,7 +77,9 @@ class TestMainApp(unittest.TestCase):
                     main_app(test_args)
 
         # Assert
-        mock_file.assert_called_once_with("openai_job_reports_YYYYMMDD_HHMMSS.jsonl", "a")
+        mock_file.assert_called_once_with(
+            "openai_job_reports_YYYYMMDD_HHMMSS.jsonl", "a")
+
 
 if __name__ == '__main__':
     unittest.main()
