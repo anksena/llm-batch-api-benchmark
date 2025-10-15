@@ -95,8 +95,8 @@ class AnthropicProvider(BatchProvider):
             return self._handle_ended_job(job, status, latency)
         elif job.processing_status == 'in_progress':
             return self._handle_in_progress_job(job, status, latency)
-        
-        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=UserStatus.UNKNOWN, latency_seconds=latency, service_reported_details=status)
+        else:
+            raise ValueError(f"Unexpected job status: {job.processing_status}")
 
     def _handle_ended_job(self, job, status, latency):
         total_requests = job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled
@@ -109,7 +109,7 @@ class AnthropicProvider(BatchProvider):
         elif job.request_counts.succeeded == total_requests:
             user_status = UserStatus.SUCCEEDED
         else:
-            user_status = UserStatus.UNKNOWN
+            raise ValueError(f"Unexpected job status: {job.processing_status}")
         return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
     def _handle_in_progress_job(self, job, status, latency):

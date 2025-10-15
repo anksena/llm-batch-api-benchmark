@@ -85,7 +85,6 @@ class GoogleProvider(BatchProvider):
             ended_at=job.end_time.isoformat() if job.end_time else None,
         )
 
-        user_status = UserStatus.UNKNOWN
         if job.state.name == 'JOB_STATE_SUCCEEDED':
             user_status = UserStatus.SUCCEEDED
         elif job.state.name == 'JOB_STATE_CANCELLED':
@@ -104,6 +103,8 @@ class GoogleProvider(BatchProvider):
                 self.cancel_job(job.name)
             else:
                 user_status = UserStatus.IN_PROGRESS
+        else:
+            raise ValueError(f"Unexpected job status: {job.state.name}")
         
         return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 

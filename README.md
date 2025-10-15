@@ -145,7 +145,6 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
 | `CANCELLED_TIMED_OUT` | The job was cancelled because it exceeded the 24-hour timeout.           |
 | `IN_PROGRESS`         | The job is still being processed and hasn't exceeded 24-hour timeout. |
 | `CANCELLED_ON_DEMAND` | The job was cancelled by a user request.                                 |
-| `UNKNOWN`             | The job is in an unknown or unexpected state.                            |
 
 ### Google
 

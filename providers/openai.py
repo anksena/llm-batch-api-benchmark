@@ -92,7 +92,6 @@ class OpenAIProvider(BatchProvider):
             failed_requests=job.request_counts.failed
         )
 
-        user_status = UserStatus.UNKNOWN
         if job.status == 'completed':
             user_status = UserStatus.SUCCEEDED
         elif job.status == 'cancelled':
@@ -111,6 +110,8 @@ class OpenAIProvider(BatchProvider):
                 self.cancel_job(job.id)
             else:
                 user_status = UserStatus.IN_PROGRESS
+        else:
+            raise ValueError(f"Unexpected job status: {job.status}")
         
         return JobReport(provider="openai", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
