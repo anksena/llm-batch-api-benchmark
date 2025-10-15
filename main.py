@@ -43,8 +43,7 @@ def main(argv):
 
     # Generate a unique output filename with provider and timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name, file_extension = os.path.splitext(FLAGS.output_file)
-    output_filename = f"{file_name}_{FLAGS.provider}_{timestamp}{file_extension}"
+    output_filename = f"{FLAGS.provider}_job_reports_{timestamp}.jsonl"
 
     load_dotenv()
     set_logging_level(FLAGS.debug)
@@ -68,9 +67,8 @@ def main(argv):
             # Principle. The `create_jobs` method is solely responsible for creating jobs,
             # while `generate_job_report_for_user` is responsible for fetching and
             # formatting reports. This promotes modularity and code reuse.
-            report_filename = f"{FLAGS.provider}_jobs_report_{timestamp}.jsonl"
-            logger.info(f"Generating reports for new jobs and saving to {report_filename}")
-            with open(report_filename, "a") as f_out:
+            logger.info(f"Generating reports for new jobs and saving to {output_filename}")
+            with open(output_filename, "a") as f_out:
                 for job_id in created_job_ids:
                     report = provider.generate_job_report_for_user(job_id)
                     if report:
