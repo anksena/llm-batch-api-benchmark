@@ -38,38 +38,60 @@ This project provides a unified command-line interface to test and compare the b
 
 ## Usage
 
-The `main.py` script is the primary entry point.
+The `main.py` script is the primary entry point. All commands follow the format: `python main.py --provider <provider> --action <action> [options]`.
 
-### Create a Batch Job
+### Create Batch Jobs
+
+Creates a specified number of new batch jobs.
 
 ```bash
-# For OpenAI
-python main.py openai create
+# For OpenAI (creates 10 jobs by default)
+python main.py --provider openai --action create_jobs
 
-# For Google
-python main.py google create
+# For Google (creates 5 jobs)
+python main.py --provider google --action create_jobs --num_jobs 5
 ```
 
-### List Recent Batch Jobs
+### Check Recent Batch Jobs
+
+Checks for jobs created in the last few hours.
 
 ```bash
-# For OpenAI
-python main.py openai list
+# For OpenAI (checks last 36 hours by default)
+python main.py --provider openai --action check_recent_jobs
 
-# For Google
-python main.py google list
+# For Google (checks last 12 hours)
+python main.py --provider google --action check_recent_jobs --hours_ago 12
+```
+
+### Check a Single Job
+
+Retrieves the status and report for a specific job.
+
+```bash
+# For any provider
+python main.py --provider <provider> --action check_single_job --job_id <YOUR_JOB_ID>
+```
+
+### Check Jobs from a File
+
+Checks the status of jobs listed in a state file.
+
+```bash
+# For any provider
+python main.py --provider <provider> --action check_jobs_from_file --state_file <PATH_TO_YOUR_STATE_FILE>
 ```
 
 ### Cancel a Batch Job
 
-You will need the `job_id` from the `create` or `list` command.
+Cancels a specific job.
 
 ```bash
 # For OpenAI
-python main.py openai cancel --job_id <YOUR_OPENAI_JOB_ID>
+python main.py --provider openai --action cancel_job --job_id <YOUR_OPENAI_JOB_ID>
 
 # For Google (Note: This deletes the job)
-python main.py google cancel --job_id <YOUR_GOOGLE_JOB_ID>
+python main.py --provider google --action cancel_job --job_id <YOUR_GOOGLE_JOB_ID>
 ```
 
 ## Batch Job States
