@@ -82,6 +82,26 @@ Checks the status of jobs listed in a state file.
 python main.py --provider <provider> --action check_jobs_from_file --state_file <PATH_TO_YOUR_STATE_FILE>
 ```
 
+### Polling for Job Completion
+
+To monitor a set of jobs until they all reach a terminal state (e.g., `SUCCEEDED`, `FAILED`), you can repeatedly use the output of one `check_jobs_from_file` run as the input for the next. This creates a polling loop that updates the status of all non-terminal jobs.
+
+**Example Workflow:**
+
+1.  **Create initial jobs and the first report file:**
+    ```bash
+    python main.py --provider google --action create_jobs --num_jobs 5
+    # This creates a file like google_job_reports_YYYYMMDD_HHMMSS.jsonl
+    ```
+
+2.  **Use the generated report to check for updates:**
+    ```bash
+    python main.py --provider google --action check_jobs_from_file --state_file <path_to_first_report>.jsonl
+    # This creates a new file, google_job_reports_YYYYMMDD_HHMMSS.jsonl, with updated statuses.
+    ```
+
+3.  **Repeat the process** with the newest report file until all jobs have reached a terminal state. The script will automatically ignore completed jobs, so the output file will eventually be empty.
+
 ### Cancel a Batch Job
 
 Cancels a specific job.
