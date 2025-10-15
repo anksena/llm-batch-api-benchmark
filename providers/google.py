@@ -7,6 +7,7 @@ from logger import get_logger
 from data_models import ServiceReportedJobDetails, JobReport, UserStatus
 from enum import Enum
 
+
 class GoogleJobStatus(Enum):
     JOB_STATE_PENDING = "JOB_STATE_PENDING"
     JOB_STATE_RUNNING = "JOB_STATE_RUNNING"
@@ -15,7 +16,9 @@ class GoogleJobStatus(Enum):
     JOB_STATE_CANCELLED = "JOB_STATE_CANCELLED"
     JOB_STATE_EXPIRED = "JOB_STATE_EXPIRED"
 
+
 logger = get_logger(__name__)
+
 
 class GoogleProvider(BatchProvider):
     """Batch processing provider for Google."""
@@ -37,20 +40,24 @@ class GoogleProvider(BatchProvider):
         file_path = f"gemini-batch-request-{job_index}.jsonl"
         with open(file_path, "w") as f:
             gemini_req = {
-                "key": "request-1", 
+                "key": "request-1",
                 "request": {
-                    "contents": [{"parts": [{"text": self.PROMPT}]}],
+                    "contents": [{
+                        "parts": [{
+                            "text": self.PROMPT
+                        }]
+                    }],
                     "generation_config": {
                         "max_output_tokens": self.MAX_TOKENS
                     }
                 }
             }
             f.write(json.dumps(gemini_req) + "\n")
-        
+
         uploaded_file = self.client.files.upload(
             file=file_path,
-            config=google_genai.types.UploadFileConfig(mime_type="application/jsonl")
-        )
+            config=google_genai.types.UploadFileConfig(
+                mime_type="application/jsonl"))
         os.remove(file_path)
 
         job = self.client.batches.create(
@@ -88,7 +95,8 @@ class GoogleProvider(BatchProvider):
         if job.state.name == 'JOB_STATE_SUCCEEDED':
             user_status = UserStatus.SUCCEEDED
         elif job.state.name == 'JOB_STATE_CANCELLED':
-            if job.end_time and (job.end_time - job.create_time) > timedelta(days=1):
+            if job.end_time and (job.end_time -
+                                 job.create_time) > timedelta(days=1):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
             else:
                 user_status = UserStatus.CANCELLED_ON_DEMAND
@@ -105,11 +113,17 @@ class GoogleProvider(BatchProvider):
                 user_status = UserStatus.IN_PROGRESS
         else:
             raise ValueError(f"Unexpected job status: {job.state.name}")
-        
-        return JobReport(provider="google", job_id=job.name, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
+
+        return JobReport(provider="google",
+                         job_id=job.name,
+                         user_assigned_status=user_status,
+                         latency_seconds=latency,
+                         service_reported_details=status)
 
     def cancel_job(self, job_id):
-        logger.info(f"Attempting to delete job (Google's equivalent of cancel): {job_id}")
+        logger.info(
+            f"Attempting to delete job (Google's equivalent of cancel): {job_id}"
+        )
         self.client.batches.delete(name=job_id)
         logger.info(f"Successfully sent delete request for job: {job_id}")
 

@@ -2,6 +2,8 @@ from dataclasses import dataclass, asdict
 import json
 from typing import Optional
 from enum import Enum
+
+
 class UserStatus(Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
@@ -11,31 +13,23 @@ class UserStatus(Enum):
 
     @classmethod
     def is_terminal(cls, status):
-        return status in [cls.SUCCEEDED, cls.FAILED, cls.CANCELLED_TIMED_OUT, cls.CANCELLED_ON_DEMAND]
+        return status in [
+            cls.SUCCEEDED, cls.FAILED, cls.CANCELLED_TIMED_OUT,
+            cls.CANCELLED_ON_DEMAND
+        ]
+
 
 class ProviderJobStatus:
     GOOGLE = [
-        "JOB_STATE_PENDING",
-        "JOB_STATE_RUNNING",
-        "JOB_STATE_SUCCEEDED",
-        "JOB_STATE_FAILED",
-        "JOB_STATE_CANCELLED",
-        "JOB_STATE_EXPIRED"
+        "JOB_STATE_PENDING", "JOB_STATE_RUNNING", "JOB_STATE_SUCCEEDED",
+        "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"
     ]
     OPENAI = [
-        "validating",
-        "in_progress",
-        "finalizing",
-        "completed",
-        "failed",
-        "cancelling",
-        "cancelled",
-        "expired"
+        "validating", "in_progress", "finalizing", "completed", "failed",
+        "cancelling", "cancelled", "expired"
     ]
-    ANTHROPIC = [
-        "in_progress",
-        "ended"
-    ]
+    ANTHROPIC = ["in_progress", "ended"]
+
 
 @dataclass
 class ServiceReportedJobDetails:
@@ -48,6 +42,7 @@ class ServiceReportedJobDetails:
     total_requests: Optional[int] = None
     completed_requests: Optional[int] = None
     failed_requests: Optional[int] = None
+
 
 @dataclass
 class JobReport:
@@ -69,20 +64,22 @@ class JobReport:
                 return o
             except TypeError:
                 return str(o)
+
         return json.dumps(asdict(self), default=default_serializer)
 
     @classmethod
     def from_json(cls, json_string):
         data = json.loads(json_string)
-        
+
         # Handle UserStatus enum
         user_status_val = data.get('user_assigned_status')
         if user_status_val:
             data['user_assigned_status'] = UserStatus(user_status_val)
-            
+
         # Handle nested ServiceReportedJobDetails dataclass
         status_details_val = data.get('service_reported_details')
         if status_details_val:
-            data['service_reported_details'] = ServiceReportedJobDetails(**status_details_val)
-            
+            data['service_reported_details'] = ServiceReportedJobDetails(
+                **status_details_val)
+
         return cls(**data)
