@@ -14,6 +14,30 @@ class UserStatus(Enum):
     def is_terminal(cls, status):
         return status in [cls.SUCCEEDED, cls.FAILED, cls.CANCELLED_TIMED_OUT, cls.CANCELLED_ON_DEMAND]
 
+class ProviderJobStatus:
+    GOOGLE = [
+        "JOB_STATE_PENDING",
+        "JOB_STATE_RUNNING",
+        "JOB_STATE_SUCCEEDED",
+        "JOB_STATE_FAILED",
+        "JOB_STATE_CANCELLED",
+        "JOB_STATE_EXPIRED"
+    ]
+    OPENAI = [
+        "validating",
+        "in_progress",
+        "finalizing",
+        "completed",
+        "failed",
+        "cancelling",
+        "cancelled",
+        "expired"
+    ]
+    ANTHROPIC = [
+        "in_progress",
+        "ended"
+    ]
+
 @dataclass
 class ServiceReportedJobDetails:
     """A standardized dataclass for reporting the status of a batch job."""

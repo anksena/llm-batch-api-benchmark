@@ -67,6 +67,7 @@ class TestGoogleProvider(unittest.TestCase):
 
         report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.FAILED)
+        self.assertIsNone(report.latency_seconds)
 
     def test_process_job_timed_out(self):
         provider = GoogleProvider(api_key="test")
@@ -93,6 +94,20 @@ class TestGoogleProvider(unittest.TestCase):
 
         report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_ON_DEMAND)
+
+    def test_unknown_status_raises_error(self):
+        provider = GoogleProvider(api_key="test")
+        mock_job = MockGoogleJob(
+            name="job-123",
+            state="UNKNOWN_STATE",
+            create_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc)
+        )
+
+        with self.assertRaises(ValueError) as context:
+            provider._validate_and_create_report(mock_job)
+        
+        self.assertTrue("Unknown job status for GOOGLE: UNKNOWN_STATE" in str(context.exception))
 
 class TestOpenAIProvider(unittest.TestCase):
 
@@ -145,6 +160,20 @@ class TestOpenAIProvider(unittest.TestCase):
 
         report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_ON_DEMAND)
+
+    def test_unknown_status_raises_error(self):
+        provider = OpenAIProvider(api_key="test")
+        mock_job = MockOpenAIJob(
+            id="job-123",
+            status="UNKNOWN_STATE",
+            created_at=datetime.now(timezone.utc).timestamp(),
+            completed_at=None
+        )
+
+        with self.assertRaises(ValueError) as context:
+            provider._validate_and_create_report(mock_job)
+        
+        self.assertTrue("Unknown job status for OPENAI: UNKNOWN_STATE" in str(context.exception))
 
 class TestAnthropicProvider(unittest.TestCase):
 
@@ -200,6 +229,20 @@ class TestAnthropicProvider(unittest.TestCase):
 
         report = provider._create_report_from_provider_job(mock_job)
         self.assertEqual(report.user_assigned_status, UserStatus.CANCELLED_ON_DEMAND)
+
+    def test_unknown_status_raises_error(self):
+        provider = AnthropicProvider(api_key="test")
+        mock_job = MockAnthropicJob(
+            id="job-123",
+            processing_status="UNKNOWN_STATE",
+            created_at=datetime.now(timezone.utc),
+            ended_at=datetime.now(timezone.utc)
+        )
+
+        with self.assertRaises(ValueError) as context:
+            provider._validate_and_create_report(mock_job)
+        
+        self.assertTrue("Unknown job status for ANTHROPIC: UNKNOWN_STATE" in str(context.exception))
 
 from absl.testing import absltest
 

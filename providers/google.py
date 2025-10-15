@@ -74,7 +74,7 @@ class GoogleProvider(BatchProvider):
 
     def _create_report_from_provider_job(self, job):
         latency = None
-        if job.end_time:
+        if job.state.name == 'JOB_STATE_SUCCEEDED' and job.end_time:
             latency = round((job.end_time - job.create_time).total_seconds(), 2)
 
         status = ServiceReportedJobDetails(

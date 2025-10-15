@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from logger import get_logger
-from data_models import JobReport, UserStatus
+from data_models import JobReport, UserStatus, ProviderJobStatus
 
 logger = get_logger(__name__)
 
@@ -70,17 +70,19 @@ class BatchProvider(ABC):
 
     def _validate_and_create_report(self, job):
         """Validates the job status and creates a JobReport."""
-        status_value = None
-        try:
-            # Helper to get nested attributes
-            def rgetattr(obj, attr):
-                for a in attr.split('.'):
-                    obj = getattr(obj, a)
-                return obj
-            status_value = rgetattr(job, self._job_status_attribute)
-            self._job_status_enum(status_value)
-        except (ValueError, AttributeError):
-            logger.warning(f"Unknown job status: {status_value}")
+        # Helper to get nested attributes
+        def rgetattr(obj, attr):
+            for a in attr.split('.'):
+                obj = getattr(obj, a)
+            return obj
+        status_value = rgetattr(job, self._job_status_attribute)
+
+        provider_name = self.get_provider_name().upper()
+        known_statuses = getattr(ProviderJobStatus, provider_name, [])
+        
+        if status_value not in known_statuses:
+            raise ValueError(f"Unknown job status for {provider_name}: {status_value}")
+
         return self._create_report_from_provider_job(job)
 
     @abstractmethod

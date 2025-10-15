@@ -78,7 +78,7 @@ class OpenAIProvider(BatchProvider):
 
     def _create_report_from_provider_job(self, job):
         latency = None
-        if job.completed_at:
+        if job.status == 'completed' and job.completed_at:
             latency = round(job.completed_at - job.created_at, 2)
 
         status = ServiceReportedJobDetails(
