@@ -63,6 +63,21 @@ def main(argv):
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
             logger.info(f"Successfully created job IDs: {created_job_ids}")
 
+            # Design Rationale:
+            # We generate reports in a separate step to adhere to the Single Responsibility
+            # Principle. The `create_jobs` method is solely responsible for creating jobs,
+            # while `generate_job_report_for_user` is responsible for fetching and
+            # formatting reports. This promotes modularity and code reuse.
+            report_filename = f"{FLAGS.provider}_jobs_report_{timestamp}.jsonl"
+            logger.info(f"Generating reports for new jobs and saving to {report_filename}")
+            with open(report_filename, "a") as f_out:
+                for job_id in created_job_ids:
+                    report = provider.generate_job_report_for_user(job_id)
+                    if report:
+                        report_json = report.to_json()
+                        print(report_json)
+                        f_out.write(report_json + "\n")
+
         if Action.CHECK_RECENT_JOBS.value in FLAGS.action:
             logger.info(f"Checking jobs from the last {FLAGS.hours_ago} hours for provider: {FLAGS.provider}")
             provider.check_recent_jobs(output_filename, FLAGS.hours_ago)
