@@ -29,6 +29,10 @@ As of October 15, 2025, the following models are used for the batch jobs:
 
 These models are defined as constants in their respective provider files (e.g., `providers/google.py`).
 
+### Execution Details
+
+- **Max Tokens:** All providers are configured to generate a maximum of `1024` tokens per request. This is defined in the `providers/base.py` file.
+
 ## Setup
 
 1.  **Clone the repository.**
