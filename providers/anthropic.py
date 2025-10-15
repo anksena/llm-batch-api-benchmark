@@ -72,24 +72,33 @@ class AnthropicProvider(BatchProvider):
             failed_requests=job.request_counts.errored
         )
 
-        user_status = UserStatus.UNKNOWN
-        if job.processing_status == 'completed' or (job.processing_status == 'ended' and job.request_counts.succeeded > 0):
-            user_status = UserStatus.SUCCEEDED
-        elif job.processing_status == 'cancelled':
-            if job.ended_at and (job.ended_at - job.created_at) > timedelta(days=1):
-                user_status = UserStatus.CANCELLED_TIMED_OUT
-            else:
-                user_status = UserStatus.CANCELLED_ON_DEMAND
-        elif job.processing_status in ('failed', 'expired', 'ended'):
-            user_status = UserStatus.FAILED
+        if job.processing_status == 'ended':
+            return self._handle_ended_job(job, status, latency)
         elif job.processing_status == 'in_progress':
-            if self._should_cancel_for_timeout(job.created_at):
-                user_status = UserStatus.CANCELLED_TIMED_OUT
-                logger.warning(f"Job {job.id} has timed out. Cancelling...")
-                self.cancel_job(job.id)
-            else:
-                user_status = UserStatus.IN_PROGRESS
+            return self._handle_in_progress_job(job, status, latency)
         
+        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=UserStatus.UNKNOWN, latency_seconds=latency, service_reported_details=status)
+
+    def _handle_ended_job(self, job, status, latency):
+        if job.request_counts.errored > 0:
+            user_status = UserStatus.FAILED
+        elif job.request_counts.canceled > 0:
+            user_status = UserStatus.CANCELLED_ON_DEMAND
+        elif job.request_counts.expired > 0:
+            user_status = UserStatus.CANCELLED_TIMED_OUT
+        elif job.request_counts.succeeded > 0:
+            user_status = UserStatus.SUCCEEDED
+        else:
+            user_status = UserStatus.UNKNOWN
+        return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
+
+    def _handle_in_progress_job(self, job, status, latency):
+        if self._should_cancel_for_timeout(job.created_at):
+            logger.warning(f"Job {job.id} has timed out. Cancelling...")
+            self.cancel_job(job.id)
+            user_status = UserStatus.CANCELLED_TIMED_OUT
+        else:
+            user_status = UserStatus.IN_PROGRESS
         return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=user_status, latency_seconds=latency, service_reported_details=status)
 
     def cancel_job(self, job_id):
@@ -99,3 +108,6 @@ class AnthropicProvider(BatchProvider):
 
     def get_job_details_from_provider(self, job_id):
         return self.client.beta.messages.batches.retrieve(job_id)
+
+    def get_provider_name(self):
+        return "anthropic"
