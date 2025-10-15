@@ -17,6 +17,18 @@ This project provides a unified command-line interface to test and compare the b
 - `.gitignore`: Ignores virtual environment files and `.env`.
 - `requirements.txt`: Lists the required Python packages.
 
+## Models Used
+
+As of October 15, 2025, the following models are used for the batch jobs:
+
+| Provider  | Model Name                   |
+| --------- | ---------------------------- |
+| Google    | `gemini-2.5-flash-lite`      |
+| OpenAI    | `gpt-4o-mini`                |
+| Anthropic | `claude-3-haiku-20240307`    |
+
+These models are defined as constants in their respective provider files (e.g., `providers/google.py`).
+
 ## Setup
 
 1.  **Clone the repository.**

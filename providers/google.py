@@ -20,6 +20,8 @@ logger = get_logger(__name__)
 class GoogleProvider(BatchProvider):
     """Batch processing provider for Google."""
 
+    MODEL_NAME = "models/gemini-2.5-flash-lite"
+
     @property
     def _job_status_enum(self):
         return GoogleJobStatus
@@ -52,7 +54,7 @@ class GoogleProvider(BatchProvider):
         os.remove(file_path)
 
         job = self.client.batches.create(
-            model="models/gemini-2.5-flash-lite",
+            model=self.MODEL_NAME,
             src=uploaded_file.name,
         )
         logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.name}")

@@ -22,6 +22,8 @@ logger = get_logger(__name__)
 class OpenAIProvider(BatchProvider):
     """Batch processing provider for OpenAI."""
 
+    MODEL_NAME = "gpt-4o-mini"
+
     @property
     def _job_status_enum(self):
         return OpenAIJobStatus
@@ -41,7 +43,7 @@ class OpenAIProvider(BatchProvider):
                 "method": "POST",
                 "url": "/v1/chat/completions",
                 "body": {
-                    "model": "gpt-4o-mini",
+                    "model": self.MODEL_NAME,
                     "messages": [{"role": "user", "content": self.PROMPT}],
                     "max_tokens": self.MAX_TOKENS
                 }
