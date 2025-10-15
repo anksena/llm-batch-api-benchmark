@@ -80,13 +80,14 @@ class AnthropicProvider(BatchProvider):
         return JobReport(provider="anthropic", job_id=job.id, user_assigned_status=UserStatus.UNKNOWN, latency_seconds=latency, service_reported_details=status)
 
     def _handle_ended_job(self, job, status, latency):
+        total_requests = job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled
         if job.request_counts.errored > 0:
             user_status = UserStatus.FAILED
         elif job.request_counts.canceled > 0:
             user_status = UserStatus.CANCELLED_ON_DEMAND
         elif job.request_counts.expired > 0:
             user_status = UserStatus.CANCELLED_TIMED_OUT
-        elif job.request_counts.succeeded > 0:
+        elif job.request_counts.succeeded == total_requests:
             user_status = UserStatus.SUCCEEDED
         else:
             user_status = UserStatus.UNKNOWN
