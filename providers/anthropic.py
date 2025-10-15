@@ -61,6 +61,24 @@ class AnthropicProvider(BatchProvider):
         if job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
 
+        # The Anthropic API returns a job object with the following structure:
+        # {
+        #   "id": "msgbatch_01HkcTjaV5uDC8jWR4ZsDV8d",
+        #   "type": "message_batch",
+        #   "processing_status": "in_progress",
+        #   "request_counts": {
+        #     "processing": 2,
+        #     "succeeded": 0,
+        #     "errored": 0,
+        #     "canceled": 0,
+        #     "expired": 0
+        #   },
+        #   "ended_at": null,
+        #   "created_at": "2024-09-24T18:37:24.100435Z",
+        #   "expires_at": "2024-09-25T18:37:24.100435Z",
+        #   "cancel_initiated_at": null,
+        #   "results_url": null
+        # }
         status = ServiceReportedJobDetails(
             job_id=job.id,
             model=self.MODEL_NAME,
