@@ -58,7 +58,8 @@ class AnthropicProvider(BatchProvider):
 
     def _create_report_from_provider_job(self, job):
         latency = None
-        if job.processing_status == 'ended' and job.request_counts.succeeded > 0 and job.ended_at:
+        total_requests = job.request_counts.succeeded + job.request_counts.errored + job.request_counts.expired + job.request_counts.canceled
+        if job.processing_status == 'ended' and job.request_counts.succeeded == total_requests and job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
 
         # The Anthropic API returns a job object with the following structure:
