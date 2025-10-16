@@ -1,3 +1,4 @@
+"""Batch processing provider for OpenAI."""
 import os
 import json
 from datetime import datetime, timezone, timedelta
@@ -40,7 +41,7 @@ class OpenAIProvider(BatchProvider):
 
     def _create_single_job(self, job_index, total_jobs):
         file_path = f"openai-batch-request-{job_index}.jsonl"
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             openai_req = {
                 "custom_id": "request-1",
                 "method": "POST",
@@ -63,7 +64,8 @@ class OpenAIProvider(BatchProvider):
         job = self.client.batches.create(input_file_id=batch_file.id,
                                          endpoint="/v1/chat/completions",
                                          completion_window="24h")
-        logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.id}")
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    job.id)
         return job.id
 
     def _get_job_list(self, hours_ago):
@@ -117,7 +119,7 @@ class OpenAIProvider(BatchProvider):
             if self._should_cancel_for_timeout(
                     datetime.fromtimestamp(job.created_at, tz=timezone.utc)):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
-                logger.warning(f"Job {job.id} has timed out. Cancelling...")
+                logger.warning("Job %s has timed out. Cancelling...", job.id)
                 self.cancel_job(job.id)
             else:
                 user_status = UserStatus.IN_PROGRESS
@@ -131,9 +133,9 @@ class OpenAIProvider(BatchProvider):
                          service_reported_details=status)
 
     def cancel_job(self, job_id):
-        logger.info(f"Attempting to cancel job: {job_id}")
+        logger.info("Attempting to cancel job: %s", job_id)
         cancelled_job = self.client.batches.cancel(job_id)
-        logger.info(f"Job {cancelled_job.id} is now {cancelled_job.status}")
+        logger.info("Job %s is now %s", cancelled_job.id, cancelled_job.status)
 
     def get_job_details_from_provider(self, job_id):
         return self.client.batches.retrieve(batch_id=job_id)

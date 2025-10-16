@@ -1,6 +1,5 @@
+"""Main entry point for the LLM Batch API Performance Comparison tool."""
 import warnings
-import os
-import json
 from datetime import datetime
 from absl import app, flags
 from dotenv import load_dotenv
@@ -46,6 +45,11 @@ logger = get_logger(__name__)
 
 
 def main(argv):
+    """Main entry point for the application.
+
+    Args:
+        argv: The command-line arguments.
+    """
     # The first argument is the script name, so we ignore it.
     del argv
 
@@ -68,21 +72,20 @@ def main(argv):
                 "You must specify at least one action with the --action flag.")
 
         if Action.CREATE_JOBS.value in FLAGS.action:
-            logger.info(
-                f"Creating {FLAGS.num_jobs} new batch jobs for provider: {FLAGS.provider}"
-            )
+            logger.info("Creating %d new batch jobs for provider: %s",
+                        FLAGS.num_jobs, FLAGS.provider)
             created_job_ids = provider.create_jobs(FLAGS.num_jobs)
-            logger.info(f"Successfully created job IDs: {created_job_ids}")
+            logger.info("Successfully created job IDs: %s", created_job_ids)
 
             # Design Rationale:
-            # We generate reports in a separate step to adhere to the Single Responsibility
-            # Principle. The `create_jobs` method is solely responsible for creating jobs,
-            # while `generate_job_report_for_user` is responsible for fetching and
-            # formatting reports. This promotes modularity and code reuse.
-            logger.info(
-                f"Generating reports for new jobs and saving to {output_filename}"
-            )
-            with open(output_filename, "a") as f_out:
+            # We generate reports in a separate step to adhere to the Single
+            # Responsibility Principle. The `create_jobs` method is solely
+            # responsible for creating jobs, while
+            # `generate_job_report_for_user` is responsible for fetching
+            # and formatting reports. This promotes modularity and code reuse.
+            logger.info("Generating reports for new jobs and saving to %s",
+                        output_filename)
+            with open(output_filename, "a", encoding="utf-8") as f_out:
                 for job_id in created_job_ids:
                     report = provider.generate_job_report_for_user(job_id)
                     if report:
@@ -92,36 +95,33 @@ def main(argv):
 
         if Action.CHECK_RECENT_JOBS.value in FLAGS.action:
             logger.info(
-                f"Checking jobs from the last {FLAGS.hours_ago} hours for provider: {FLAGS.provider}"
-            )
+                "Checking jobs from the last %d hours for provider: %s",
+                FLAGS.hours_ago, FLAGS.provider)
             provider.check_recent_jobs(output_filename, FLAGS.hours_ago)
 
         if Action.CHECK_SINGLE_JOB.value in FLAGS.action:
             if not FLAGS.job_id:
-                raise ValueError(
-                    "The --job_id flag is required for the 'check_single_job' action."
-                )
-            logger.info(f"Checking status of job: {FLAGS.job_id}")
+                raise ValueError("The --job_id flag is required for the "
+                                 "'check_single_job' action.")
+            logger.info("Checking status of job: %s", FLAGS.job_id)
             provider.generate_job_report_for_user(FLAGS.job_id)
 
         if Action.CHECK_JOBS_FROM_FILE.value in FLAGS.action:
             if not FLAGS.state_file:
-                raise ValueError(
-                    "The --state_file flag is required for the 'check_jobs_from_file' action."
-                )
-            logger.info(f"Checking jobs from file: {FLAGS.state_file}")
+                raise ValueError("The --state_file flag is required for the "
+                                 "'check_jobs_from_file' action.")
+            logger.info("Checking jobs from file: %s", FLAGS.state_file)
             provider.check_jobs_from_file(FLAGS.state_file, output_filename)
 
         if Action.CANCEL_JOB.value in FLAGS.action:
             if not FLAGS.job_id:
-                raise ValueError(
-                    "The --job_id flag is required for the 'cancel_job' action."
-                )
-            logger.info(f"Cancelling job: {FLAGS.job_id}")
+                raise ValueError("The --job_id flag is required for the "
+                                 "'cancel_job' action.")
+            logger.info("Cancelling job: %s", FLAGS.job_id)
             provider.cancel_job(FLAGS.job_id)
 
-    except (ValueError, Exception) as e:
-        logger.error(f"An error occurred: {e}", exc_info=FLAGS.debug)
+    except ValueError as e:
+        logger.error("An error occurred: %s", e, exc_info=FLAGS.debug)
 
 
 if __name__ == "__main__":

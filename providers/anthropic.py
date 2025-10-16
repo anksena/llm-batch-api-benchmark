@@ -1,5 +1,4 @@
-import os
-import json
+"""Batch processing provider for Anthropic."""
 from datetime import datetime, timezone, timedelta
 from anthropic import Anthropic
 from .base import BatchProvider
@@ -47,7 +46,8 @@ class AnthropicProvider(BatchProvider):
 
         job = self.client.beta.messages.batches.create(
             requests=anthropic_requests)
-        logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.id}")
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    job.id)
         return job.id
 
     def _get_job_list(self, hours_ago):
@@ -127,7 +127,7 @@ class AnthropicProvider(BatchProvider):
 
     def _handle_in_progress_job(self, job, status, latency):
         if self._should_cancel_for_timeout(job.created_at):
-            logger.warning(f"Job {job.id} has timed out. Cancelling...")
+            logger.warning("Job %s has timed out. Cancelling...", job.id)
             self.cancel_job(job.id)
             user_status = UserStatus.CANCELLED_TIMED_OUT
         else:
@@ -139,10 +139,10 @@ class AnthropicProvider(BatchProvider):
                          service_reported_details=status)
 
     def cancel_job(self, job_id):
-        logger.info(f"Attempting to cancel job: {job_id}")
+        logger.info("Attempting to cancel job: %s", job_id)
         cancelled_job = self.client.beta.messages.batches.cancel(job_id)
-        logger.info(
-            f"Job {cancelled_job.id} is now {cancelled_job.processing_status}")
+        logger.info("Job %s is now %s", cancelled_job.id,
+                    cancelled_job.processing_status)
 
     def get_job_details_from_provider(self, job_id):
         return self.client.beta.messages.batches.retrieve(job_id)

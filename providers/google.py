@@ -1,3 +1,4 @@
+"""Batch processing provider for Google."""
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -38,7 +39,7 @@ class GoogleProvider(BatchProvider):
 
     def _create_single_job(self, job_index, total_jobs):
         file_path = f"gemini-batch-request-{job_index}.jsonl"
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             gemini_req = {
                 "key": "request-1",
                 "request": {
@@ -64,7 +65,8 @@ class GoogleProvider(BatchProvider):
             model=self.MODEL_NAME,
             src=uploaded_file.name,
         )
-        logger.info(f"Created batch job {job_index+1}/{total_jobs}: {job.name}")
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    job.name)
         return job.name
 
     def _get_job_list(self, hours_ago):
@@ -107,7 +109,7 @@ class GoogleProvider(BatchProvider):
         elif job.state.name in ('JOB_STATE_PENDING', 'BATCH_STATE_RUNNING'):
             if self._should_cancel_for_timeout(job.create_time):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
-                logger.warning(f"Job {job.name} has timed out. Cancelling...")
+                logger.warning("Job %s has timed out. Cancelling...", job.name)
                 self.cancel_job(job.name)
             else:
                 user_status = UserStatus.IN_PROGRESS
@@ -121,11 +123,10 @@ class GoogleProvider(BatchProvider):
                          service_reported_details=status)
 
     def cancel_job(self, job_id):
-        logger.info(
-            f"Attempting to delete job (Google's equivalent of cancel): {job_id}"
-        )
+        logger.info("Attempting to delete job (Google's equivalent of cancel): %s",
+                    job_id)
         self.client.batches.delete(name=job_id)
-        logger.info(f"Successfully sent delete request for job: {job_id}")
+        logger.info("Successfully sent delete request for job: %s", job_id)
 
     def get_job_details_from_provider(self, job_id):
         return self.client.batches.get(name=job_id)

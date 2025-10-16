@@ -1,4 +1,4 @@
-import json
+"""Abstract base class for a batch processing provider."""
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from logger import get_logger
@@ -17,7 +17,14 @@ class BatchProvider(ABC):
         self.client = self._initialize_client(api_key)
 
     def create_jobs(self, num_jobs):
-        """Creates a batch job with n requests."""
+        """Creates a specified number of batch jobs.
+
+        Args:
+            num_jobs: The number of jobs to create.
+
+        Returns:
+            A list of the created job IDs.
+        """
         job_ids = []
         for i in range(num_jobs):
             job_id = self._create_single_job(i, num_jobs)
@@ -25,8 +32,16 @@ class BatchProvider(ABC):
         return job_ids
 
     def check_jobs_from_file(self, state_file, output_file):
-        """Processes a state file of jobs and checks their status."""
-        with open(state_file, "r") as f_in, open(output_file, "a") as f_out:
+        """Processes a state file of jobs and checks their status.
+
+        Args:
+            state_file: The path to the input state file.
+            output_file: The path to the output file to append reports to.
+        """
+        with open(state_file, "r",
+                  encoding="utf-8") as f_in, open(output_file,
+                                                  "a",
+                                                  encoding="utf-8") as f_out:
             for line in f_in:
                 job_report = JobReport.from_json(line)
                 if not UserStatus.is_terminal(job_report.user_assigned_status):
@@ -39,12 +54,16 @@ class BatchProvider(ABC):
                             f_out.write(report_json + "\n")
 
     def check_recent_jobs(self, output_file, hours_ago):
-        """Checks all recent jobs and appends reports to the output file."""
-        logger.info(
-            f"Checking recent jobs for provider and appending to {output_file}..."
-        )
+        """Checks all recent jobs and appends reports to the output file.
 
-        with open(output_file, "a") as f:
+        Args:
+            output_file: The path to the output file to append reports to.
+            hours_ago: The number of hours in the past to check for jobs.
+        """
+        logger.info("Checking recent jobs for provider and appending to %s...",
+                    output_file)
+
+        with open(output_file, "a", encoding="utf-8") as f:
             for job in self._get_job_list(hours_ago):
                 report = self._validate_and_create_report(job)
                 if report:
@@ -73,8 +92,17 @@ class BatchProvider(ABC):
         pass
 
     def _validate_and_create_report(self, job):
-        """Validates the job status and creates a JobReport."""
+        """Validates the job status and creates a JobReport.
 
+        Args:
+            job: The provider-specific job object.
+
+        Returns:
+            A JobReport object.
+
+        Raises:
+            ValueError: If the job status is unknown.
+        """
         # Helper to get nested attributes
         def rgetattr(obj, attr):
             for a in attr.split('.'):
@@ -98,7 +126,14 @@ class BatchProvider(ABC):
         pass
 
     def generate_job_report_for_user(self, job_id):
-        """Gets the report for a single batch job."""
+        """Gets the report for a single batch job.
+
+        Args:
+            job_id: The ID of the job to check.
+
+        Returns:
+            A JobReport object, or None if the job is not found.
+        """
         job = self.get_job_details_from_provider(job_id)
         report = self._validate_and_create_report(job)
         if report:

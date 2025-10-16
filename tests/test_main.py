@@ -78,7 +78,7 @@ class TestMainApp(unittest.TestCase):
 
         # Assert
         mock_file.assert_called_once_with(
-            "openai_job_reports_YYYYMMDD_HHMMSS.jsonl", "a")
+            "openai_job_reports_YYYYMMDD_HHMMSS.jsonl", "a", encoding="utf-8")
 
 
 if __name__ == '__main__':
