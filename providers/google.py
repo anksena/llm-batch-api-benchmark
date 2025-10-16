@@ -37,7 +37,7 @@ class GoogleProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return google_genai.Client(api_key=api_key)
 
-    def _create_single_job(self, job_index, total_jobs):
+    def _create_single_job(self, job_index, total_jobs, prompt):
         file_path = f"gemini-batch-request-{job_index}.jsonl"
         with open(file_path, "w", encoding="utf-8") as f:
             gemini_req = {
@@ -45,7 +45,7 @@ class GoogleProvider(BatchProvider):
                 "request": {
                     "contents": [{
                         "parts": [{
-                            "text": self.PROMPT
+                            "text": prompt
                         }]
                     }],
                     "generation_config": {

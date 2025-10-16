@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from provider_factory import get_provider
 from logger import set_logging_level, get_logger
 from enum import Enum
+from prompts import PROMPTS
 
 
 # Define an Enum for providers to ensure type safety
@@ -72,9 +73,14 @@ def main(argv):
                 "You must specify at least one action with the --action flag.")
 
         if Action.CREATE_JOBS.value in FLAGS.action:
+            if FLAGS.num_jobs > len(PROMPTS):
+                raise ValueError(
+                    f"Number of jobs ({FLAGS.num_jobs}) cannot exceed the number of available prompts ({len(PROMPTS)})."
+                )
             logger.info("Creating %d new batch jobs for provider: %s",
                         FLAGS.num_jobs, FLAGS.provider)
-            created_job_ids = provider.create_jobs(FLAGS.num_jobs)
+            created_job_ids = provider.create_jobs(FLAGS.num_jobs,
+                                                   PROMPTS[:FLAGS.num_jobs])
             logger.info("Successfully created job IDs: %s", created_job_ids)
 
             # Design Rationale:

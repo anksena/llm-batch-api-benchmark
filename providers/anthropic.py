@@ -31,14 +31,14 @@ class AnthropicProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return Anthropic(api_key=api_key)
 
-    def _create_single_job(self, job_index, total_jobs):
+    def _create_single_job(self, job_index, total_jobs, prompt):
         anthropic_requests = [{
             "custom_id": "request-1",
             "params": {
                 "model": self.MODEL_NAME,
                 "messages": [{
                     "role": "user",
-                    "content": self.PROMPT
+                    "content": prompt
                 }],
                 "max_tokens": self.MAX_TOKENS,
             }

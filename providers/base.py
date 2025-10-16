@@ -10,24 +10,24 @@ logger = get_logger(__name__)
 class BatchProvider(ABC):
     """Abstract base class for a batch processing provider."""
 
-    PROMPT = "In one sentence, what is the main function of a CPU?"
     MAX_TOKENS = 1024
 
     def __init__(self, api_key):
         self.client = self._initialize_client(api_key)
 
-    def create_jobs(self, num_jobs):
+    def create_jobs(self, num_jobs, prompts):
         """Creates a specified number of batch jobs.
 
         Args:
             num_jobs: The number of jobs to create.
+            prompts: A list of prompts to use for each job.
 
         Returns:
             A list of the created job IDs.
         """
         job_ids = []
         for i in range(num_jobs):
-            job_id = self._create_single_job(i, num_jobs)
+            job_id = self._create_single_job(i, num_jobs, prompts[i])
             job_ids.append(job_id)
         return job_ids
 

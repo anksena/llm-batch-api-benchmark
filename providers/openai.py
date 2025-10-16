@@ -39,7 +39,7 @@ class OpenAIProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return OpenAI(api_key=api_key)
 
-    def _create_single_job(self, job_index, total_jobs):
+    def _create_single_job(self, job_index, total_jobs, prompt):
         file_path = f"openai-batch-request-{job_index}.jsonl"
         with open(file_path, "w", encoding="utf-8") as f:
             openai_req = {
@@ -50,7 +50,7 @@ class OpenAIProvider(BatchProvider):
                     "model": self.MODEL_NAME,
                     "messages": [{
                         "role": "user",
-                        "content": self.PROMPT
+                        "content": prompt
                     }],
                     "max_tokens": self.MAX_TOKENS
                 }

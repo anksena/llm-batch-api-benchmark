@@ -19,6 +19,7 @@ class TestMainApp(unittest.TestCase):
         flags.FLAGS.unparse_flags()
 
     @patch('main.load_dotenv')
+    @patch('main.PROMPTS', ["prompt1", "prompt2", "prompt3"])
     @patch('main.get_provider')
     def test_create_jobs_respects_num_jobs_flag(self, mock_get_provider,
                                                 mock_load_dotenv):
@@ -44,7 +45,8 @@ class TestMainApp(unittest.TestCase):
                 main_app(test_args)
 
         # Assert
-        mock_provider.create_jobs.assert_called_once_with(3)
+        mock_provider.create_jobs.assert_called_once_with(3,
+                                                      ["prompt1", "prompt2", "prompt3"])
         self.assertEqual(mock_provider.generate_job_report_for_user.call_count,
                          3)
 
@@ -53,6 +55,7 @@ class TestMainApp(unittest.TestCase):
         self.assertEqual(mock_file().write.call_count, 3)
 
     @patch('main.load_dotenv')
+    @patch('main.PROMPTS', ["prompt1"])
     @patch('main.get_provider')
     def test_output_filename_is_standardized(self, mock_get_provider,
                                              mock_load_dotenv):
