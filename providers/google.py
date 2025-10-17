@@ -37,23 +37,25 @@ class GoogleProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return google_genai.Client(api_key=api_key)
 
-    def _create_single_job(self, job_index, total_jobs, prompt):
+    def _create_single_batch_job(self, job_index: int, total_jobs: int,
+                               prompts: list[str]) -> str:
         file_path = f"gemini-batch-request-{job_index}.jsonl"
         with open(file_path, "w", encoding="utf-8") as f:
-            gemini_req = {
-                "key": "request-1",
-                "request": {
-                    "contents": [{
-                        "parts": [{
-                            "text": prompt
-                        }]
-                    }],
-                    "generation_config": {
-                        "max_output_tokens": self.MAX_TOKENS
+            for i, prompt in enumerate(prompts):
+                gemini_req = {
+                    "key": f"request-{i}",
+                    "request": {
+                        "contents": [{
+                            "parts": [{
+                                "text": prompt
+                            }]
+                        }],
+                        "generation_config": {
+                            "max_output_tokens": self.MAX_TOKENS
+                        }
                     }
                 }
-            }
-            f.write(json.dumps(gemini_req) + "\n")
+                f.write(json.dumps(gemini_req) + "\n")
 
         uploaded_file = self.client.files.upload(
             file=file_path,

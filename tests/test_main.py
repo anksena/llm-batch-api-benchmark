@@ -19,23 +19,22 @@ class TestMainApp(unittest.TestCase):
         flags.FLAGS.unparse_flags()
 
     @patch('main.load_dotenv')
-    @patch('main.PROMPTS', ["prompt1", "prompt2", "prompt3"])
+    @patch('main.PROMPTS', ["prompt1", "prompt2", "prompt3", "prompt4"])
     @patch('main.get_provider')
     def test_create_jobs_respects_num_jobs_flag(self, mock_get_provider,
                                                 mock_load_dotenv):
         # Arrange
         mock_provider = MagicMock()
-        mock_provider.create_jobs.return_value = ["job-1", "job-2", "job-3"]
+        mock_provider.create_jobs.return_value = ["job-1", "job-2"]
         mock_provider.generate_job_report_for_user.side_effect = [
             MagicMock(to_json=lambda: '{"job_id": "job-1"}'),
-            MagicMock(to_json=lambda: '{"job_id": "job-2"}'),
-            MagicMock(to_json=lambda: '{"job_id": "job-3"}')
+            MagicMock(to_json=lambda: '{"job_id": "job-2"}')
         ]
         mock_get_provider.return_value = mock_provider
 
         test_args = [
             "main.py", "--provider=google", "--action=create_jobs",
-            "--num_jobs=3"
+            "--num_jobs=2", "--requests_per_job=2"
         ]
 
         # Act
@@ -45,14 +44,14 @@ class TestMainApp(unittest.TestCase):
                 main_app(test_args)
 
         # Assert
-        mock_provider.create_jobs.assert_called_once_with(3,
-                                                      ["prompt1", "prompt2", "prompt3"])
+        mock_provider.create_jobs.assert_called_once_with(
+            2, 2, ["prompt1", "prompt2", "prompt3", "prompt4"])
         self.assertEqual(mock_provider.generate_job_report_for_user.call_count,
-                         3)
+                         2)
 
         # Verify that the output file was written to with the correct number of lines
         mock_file().write.assert_called()
-        self.assertEqual(mock_file().write.call_count, 3)
+        self.assertEqual(mock_file().write.call_count, 2)
 
     @patch('main.load_dotenv')
     @patch('main.PROMPTS', ["prompt1"])

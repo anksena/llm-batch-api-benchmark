@@ -31,18 +31,21 @@ class AnthropicProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return Anthropic(api_key=api_key)
 
-    def _create_single_job(self, job_index, total_jobs, prompt):
-        anthropic_requests = [{
-            "custom_id": "request-1",
-            "params": {
-                "model": self.MODEL_NAME,
-                "messages": [{
-                    "role": "user",
-                    "content": prompt
-                }],
-                "max_tokens": self.MAX_TOKENS,
-            }
-        }]
+    def _create_single_batch_job(self, job_index: int, total_jobs: int,
+                               prompts: list[str]) -> str:
+        anthropic_requests = []
+        for i, prompt in enumerate(prompts):
+            anthropic_requests.append({
+                "custom_id": f"request-{i}",
+                "params": {
+                    "model": self.MODEL_NAME,
+                    "messages": [{
+                        "role": "user",
+                        "content": prompt
+                    }],
+                    "max_tokens": self.MAX_TOKENS,
+                }
+            })
 
         job = self.client.beta.messages.batches.create(
             requests=anthropic_requests)

@@ -39,23 +39,25 @@ class OpenAIProvider(BatchProvider):
     def _initialize_client(self, api_key):
         return OpenAI(api_key=api_key)
 
-    def _create_single_job(self, job_index, total_jobs, prompt):
+    def _create_single_batch_job(self, job_index: int, total_jobs: int,
+                               prompts: list[str]) -> str:
         file_path = f"openai-batch-request-{job_index}.jsonl"
         with open(file_path, "w", encoding="utf-8") as f:
-            openai_req = {
-                "custom_id": "request-1",
-                "method": "POST",
-                "url": "/v1/chat/completions",
-                "body": {
-                    "model": self.MODEL_NAME,
-                    "messages": [{
-                        "role": "user",
-                        "content": prompt
-                    }],
-                    "max_tokens": self.MAX_TOKENS
+            for i, prompt in enumerate(prompts):
+                openai_req = {
+                    "custom_id": f"request-{i}",
+                    "method": "POST",
+                    "url": "/v1/chat/completions",
+                    "body": {
+                        "model": self.MODEL_NAME,
+                        "messages": [{
+                            "role": "user",
+                            "content": prompt
+                        }],
+                        "max_tokens": self.MAX_TOKENS
+                    }
                 }
-            }
-            f.write(json.dumps(openai_req) + "\n")
+                f.write(json.dumps(openai_req) + "\n")
 
         with open(file_path, "rb") as f:
             batch_file = self.client.files.create(file=f, purpose="batch")

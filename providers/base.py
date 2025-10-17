@@ -15,19 +15,25 @@ class BatchProvider(ABC):
     def __init__(self, api_key):
         self.client = self._initialize_client(api_key)
 
-    def create_jobs(self, num_jobs, prompts):
+    def create_jobs(self, num_jobs: int, requests_per_job: int,
+                    prompts: list[str]) -> list[str]:
         """Creates a specified number of batch jobs.
 
         Args:
             num_jobs: The number of jobs to create.
+            requests_per_job: The number of requests per job.
             prompts: A list of prompts to use for each job.
 
         Returns:
             A list of the created job IDs.
         """
-        job_ids = []
+        job_ids: list[str] = []
         for i in range(num_jobs):
-            job_id = self._create_single_job(i, num_jobs, prompts[i])
+            start: int = i * requests_per_job
+            end: int = start + requests_per_job
+            job_prompts: list[str] = prompts[start:end]
+            job_id: str = self._create_single_batch_job(i, num_jobs,
+                                                        job_prompts)
             job_ids.append(job_id)
         return job_ids
 
@@ -121,8 +127,18 @@ class BatchProvider(ABC):
         return self._create_report_from_provider_job(job)
 
     @abstractmethod
-    def _create_report_from_provider_job(self, job):
-        """Creates a JobReport from a provider-specific job object."""
+    def _create_single_batch_job(self, job_index: int, total_jobs: int,
+                               prompts: list[str]) -> str:
+        """Creates a single batch job with multiple requests.
+
+        Args:
+            job_index: The index of the current job.
+            total_jobs: The total number of jobs being created.
+            prompts: A list of prompts to include in the batch job.
+
+        Returns:
+            The ID of the created batch job.
+        """
         pass
 
     def generate_job_report_for_user(self, job_id):

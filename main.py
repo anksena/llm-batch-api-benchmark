@@ -34,6 +34,8 @@ flags.mark_flag_as_required("provider")
 flags.DEFINE_multi_enum("action", [], [a.value for a in Action],
                         "The action(s) to perform.")
 flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
+flags.DEFINE_integer("requests_per_job", 1,
+                     "The number of inference requests per batch job.")
 flags.DEFINE_integer("hours_ago", 36,
                      "The number of hours ago to check for recent jobs.")
 flags.DEFINE_string("job_id", None, "The job ID to cancel.")
@@ -76,14 +78,17 @@ def main(argv):
                 "You must specify at least one action with the --action flag.")
 
         if Action.CREATE_JOBS.value in FLAGS.action:
-            if FLAGS.num_jobs > len(PROMPTS):
+            total_requests = FLAGS.num_jobs * FLAGS.requests_per_job
+            if total_requests > len(PROMPTS):
                 raise ValueError(
-                    f"Number of jobs ({FLAGS.num_jobs}) cannot exceed the number of available prompts ({len(PROMPTS)})."
+                    f"Total number of requests ({total_requests}) cannot exceed the number of available prompts ({len(PROMPTS)})."
                 )
-            logger.info("Creating %d new batch jobs for provider: %s",
-                        FLAGS.num_jobs, FLAGS.provider)
-            created_job_ids = provider.create_jobs(FLAGS.num_jobs,
-                                                   PROMPTS[:FLAGS.num_jobs])
+            logger.info(
+                "Creating %d new batch jobs for provider: %s with %d requests per job",
+                FLAGS.num_jobs, FLAGS.provider, FLAGS.requests_per_job)
+            created_job_ids = provider.create_jobs(
+                FLAGS.num_jobs, FLAGS.requests_per_job,
+                PROMPTS[:total_requests])
             logger.info("Successfully created job IDs: %s", created_job_ids)
 
             # Design Rationale:

@@ -1,7 +1,7 @@
 import unittest
 import sys
 import os
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta, timezone
 
 
@@ -52,6 +52,26 @@ from data_models import UserStatus, ServiceReportedJobDetails
 
 
 class TestGoogleProvider(unittest.TestCase):
+
+    @patch('builtins.open', new_callable=unittest.mock.mock_open)
+    @patch('os.remove')
+    def test_create_single_batch_job_with_multiple_requests(
+            self, mock_remove, mock_open):
+        # Arrange
+        provider = GoogleProvider(api_key="test")
+        provider.client = MagicMock()
+        prompts = ["prompt1", "prompt2"]
+
+        # Act
+        provider._create_single_batch_job(0, 1, prompts)
+
+        # Assert
+        mock_open.assert_called_once_with("gemini-batch-request-0.jsonl",
+                                          "w",
+                                          encoding="utf-8")
+        self.assertEqual(mock_open().write.call_count, 2)
+        provider.client.files.upload.assert_called_once()
+        provider.client.batches.create.assert_called_once()
 
     def test_process_job_succeeded(self):
         provider = GoogleProvider(api_key="test")
@@ -114,6 +134,28 @@ class TestGoogleProvider(unittest.TestCase):
 
 
 class TestOpenAIProvider(unittest.TestCase):
+
+    @patch('builtins.open', new_callable=unittest.mock.mock_open)
+    @patch('os.remove')
+    def test_create_single_batch_job_with_multiple_requests(
+            self, mock_remove, mock_open):
+        # Arrange
+        provider = OpenAIProvider(api_key="test")
+        provider.client = MagicMock()
+        prompts = ["prompt1", "prompt2"]
+
+        # Act
+        provider._create_single_batch_job(0, 1, prompts)
+
+        # Assert
+        self.assertEqual(mock_open.call_count, 2)
+        mock_open.assert_any_call("openai-batch-request-0.jsonl",
+                                  "w",
+                                  encoding="utf-8")
+        mock_open.assert_any_call("openai-batch-request-0.jsonl", "rb")
+        self.assertEqual(mock_open().write.call_count, 2)
+        provider.client.files.create.assert_called_once()
+        provider.client.batches.create.assert_called_once()
 
     def test_process_job_succeeded(self):
         provider = OpenAIProvider(api_key="test")
@@ -179,6 +221,21 @@ class TestOpenAIProvider(unittest.TestCase):
 
 
 class TestAnthropicProvider(unittest.TestCase):
+
+    def test_create_single_batch_job_with_multiple_requests(self):
+        # Arrange
+        provider = AnthropicProvider(api_key="test")
+        provider.client = MagicMock()
+        prompts = ["prompt1", "prompt2"]
+
+        # Act
+        provider._create_single_batch_job(0, 1, prompts)
+
+        # Assert
+        self.assertEqual(
+            len(provider.client.beta.messages.batches.create.call_args[1]
+                ["requests"]), 2)
+        provider.client.beta.messages.batches.create.assert_called_once()
 
     def test_process_job_succeeded(self):
         provider = AnthropicProvider(api_key="test")
