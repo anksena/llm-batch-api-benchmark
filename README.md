@@ -58,14 +58,14 @@ The `main.py` script is the primary entry point. All commands follow the format:
 
 ### Create Batch Jobs
 
-Creates a specified number of new batch jobs.
+Creates a specified number of new batch jobs, with a specified number of requests per job.
 
 ```bash
-# For OpenAI (creates 10 jobs by default)
+# For OpenAI (creates 10 jobs by default, with 1 request per job)
 python main.py --provider openai --action create_jobs
 
-# For Google (creates 5 jobs)
-python main.py --provider google --action create_jobs --num_jobs 5
+# For Google (creates 5 jobs with 2 requests per job)
+python main.py --provider google --action create_jobs --num_jobs 5 --requests_per_job 2
 ```
 
 ### Check Recent Batch Jobs
@@ -128,6 +128,15 @@ python main.py --provider openai --action cancel_job --job_id <YOUR_OPENAI_JOB_I
 
 # For Google (Note: This deletes the job)
 python main.py --provider google --action cancel_job --job_id <YOUR_GOOGLE_JOB_ID>
+```
+
+### Download Batch Job Results
+
+Downloads the results of a completed batch job.
+
+```bash
+# For any provider
+python main.py --provider <provider> --action download_results --job_id <YOUR_JOB_ID> --enable_download_results
 ```
 
 ## Batch Job States
