@@ -133,3 +133,25 @@ class GoogleProvider(BatchProvider):
 
     def get_provider_name(self):
         return "google"
+
+    def download_results(self, job, output_file):
+        """Downloads the results of a completed batch job.
+
+        Args:
+            job: The provider-specific job object.
+            output_file: The path to the output file to save the results to.
+        """
+        if job.state.name == 'JOB_STATE_SUCCEEDED':
+            if job.dest and job.dest.file_name:
+                result_file_name = job.dest.file_name
+                logger.info("Results are in file: %s", result_file_name)
+                logger.info("Downloading result file content...")
+                file_content = self.client.files.download(file=result_file_name)
+                with open(output_file, "wb") as f:
+                    f.write(file_content)
+                logger.info("Successfully downloaded results to %s", output_file)
+            else:
+                logger.info("No results file found for job %s", job.name)
+        else:
+            logger.warning("Job %s did not succeed. Final state: %s", job.name,
+                           job.state.name)

@@ -23,6 +23,7 @@ class Action(Enum):
     CHECK_SINGLE_JOB = "check_single_job"
     CHECK_JOBS_FROM_FILE = "check_jobs_from_file"
     CANCEL_JOB = "cancel_job"
+    DOWNLOAD_RESULTS = "download_results"
 
 
 # Define flags
@@ -41,6 +42,8 @@ flags.DEFINE_string("state_file", None,
 flags.DEFINE_boolean("debug", False, "Enable debug logging.")
 flags.DEFINE_string("output_file", "job_reports.jsonl",
                     "The file to append job reports to.")
+flags.DEFINE_boolean("enable_download_results", False,
+                     "Enable the download_results action.")
 
 logger = get_logger(__name__)
 
@@ -125,6 +128,21 @@ def main(argv):
                                  "'cancel_job' action.")
             logger.info("Cancelling job: %s", FLAGS.job_id)
             provider.cancel_job(FLAGS.job_id)
+
+        if Action.DOWNLOAD_RESULTS.value in FLAGS.action:
+            if not FLAGS.enable_download_results:
+                raise ValueError(
+                    "The 'download_results' action is not enabled. "
+                    "Please run with --enable_download_results.")
+            if not FLAGS.job_id:
+                raise ValueError(
+                    "The --job_id flag is required for the 'download_results' action."
+                )
+            logger.info("Downloading results for job: %s", FLAGS.job_id)
+            job = provider.get_job_details_from_provider(FLAGS.job_id)
+            provider.download_results(
+                job, f"{FLAGS.provider}_results_{FLAGS.job_id.replace('/', '_')}.jsonl"
+            )
 
     except ValueError as e:
         logger.error("An error occurred: %s", e, exc_info=FLAGS.debug)

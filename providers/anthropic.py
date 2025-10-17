@@ -149,3 +149,25 @@ class AnthropicProvider(BatchProvider):
 
     def get_provider_name(self):
         return "anthropic"
+
+    def download_results(self, job, output_file):
+        """Downloads the results of a completed batch job.
+
+        Args:
+            job: The provider-specific job object.
+            output_file: The path to the output file to save the results to.
+        """
+        if job.processing_status == 'ended':
+            if job.results_url:
+                logger.info("Results are at URL: %s", job.results_url)
+                logger.info("Downloading result file content...")
+                response = self.client.get(job.results_url, cast_to=bytes)
+                with open(output_file, "wb") as f:
+                    f.write(response)
+                logger.info("Successfully downloaded results to %s",
+                            output_file)
+            else:
+                logger.info("No results file found for job %s", job.id)
+        else:
+            logger.warning("Job %s did not succeed. Final state: %s", job.id,
+                           job.processing_status)

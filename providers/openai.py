@@ -142,3 +142,26 @@ class OpenAIProvider(BatchProvider):
 
     def get_provider_name(self):
         return "openai"
+
+    def download_results(self, job, output_file):
+        """Downloads the results of a completed batch job.
+
+        Args:
+            job: The provider-specific job object.
+            output_file: The path to the output file to save the results to.
+        """
+        if job.status == 'completed':
+            if job.output_file_id:
+                result_file_id = job.output_file_id
+                logger.info("Results are in file: %s", result_file_id)
+                logger.info("Downloading result file content...")
+                file_content = self.client.files.content(result_file_id)
+                with open(output_file, "wb") as f:
+                    f.write(file_content.read())
+                logger.info("Successfully downloaded results to %s",
+                            output_file)
+            else:
+                logger.info("No results file found for job %s", job.id)
+        else:
+            logger.warning("Job %s did not succeed. Final state: %s", job.id,
+                           job.status)
