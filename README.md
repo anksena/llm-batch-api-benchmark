@@ -165,7 +165,7 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
     - `JOB_STATE_EXPIRED`
 - **Non-Terminal States:**
     - `JOB_STATE_PENDING`
-    - `BATCH_STATE_RUNNING`
+    - `JOB_STATE_RUNNING`
 
 ### OpenAI
 
@@ -207,7 +207,7 @@ This section documents the mapping from the provider-specific job statuses to th
 |           | `JOB_STATE_CANCELLED`   | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.                                |
 |           | `JOB_STATE_CANCELLED`   | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
 |           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
-|           | `BATCH_STATE_RUNNING`   | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_RUNNING`     | `IN_PROGRESS`           |                                                                       |
 | OpenAI    | `completed`             | `SUCCEEDED`             |                                                                       |
 |           | `failed`                | `FAILED`                |                                                                       |
 |           | `expired`               | `CANCELLED_TIMED_OUT`   | The batch could not be completed within the SLA time window.          |

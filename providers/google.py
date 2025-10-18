@@ -108,7 +108,7 @@ class GoogleProvider(BatchProvider):
             user_status = UserStatus.FAILED
         elif job.state.name == 'JOB_STATE_EXPIRED':
             user_status = UserStatus.CANCELLED_TIMED_OUT
-        elif job.state.name in ('JOB_STATE_PENDING', 'BATCH_STATE_RUNNING'):
+        elif job.state.name in ('JOB_STATE_PENDING', 'JOB_STATE_RUNNING'):
             if self._should_cancel_for_timeout(job.create_time):
                 user_status = UserStatus.CANCELLED_TIMED_OUT
                 logger.warning("Job %s has timed out. Cancelling...", job.name)
