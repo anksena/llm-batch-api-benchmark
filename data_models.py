@@ -24,6 +24,10 @@ class ProviderJobStatus:
         "JOB_STATE_PENDING", "JOB_STATE_RUNNING", "JOB_STATE_SUCCEEDED",
         "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"
     ]
+    GOOGLE_VERTEX_AI = [
+        "JOB_STATE_PENDING", "JOB_STATE_RUNNING", "JOB_STATE_SUCCEEDED",
+        "JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"
+    ]
     OPENAI = [
         "validating", "in_progress", "finalizing", "completed", "failed",
         "cancelling", "cancelled", "expired"

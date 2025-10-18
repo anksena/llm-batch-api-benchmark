@@ -1,5 +1,6 @@
 """Main entry point for the LLM Batch API Performance Comparison tool."""
 import warnings
+import traceback
 from datetime import datetime
 from absl import app, flags
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from prompts import PROMPTS
 # Define an Enum for providers to ensure type safety
 class Provider(Enum):
     GOOGLE = "google"
+    GOOGLE_VERTEX_AI = "google_vertex_ai"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
 
@@ -151,6 +153,7 @@ def main(argv):
 
     except ValueError as e:
         logger.error("An error occurred: %s", e, exc_info=FLAGS.debug)
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
