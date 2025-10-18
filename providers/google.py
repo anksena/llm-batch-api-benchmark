@@ -118,10 +118,15 @@ class GoogleProvider(BatchProvider):
         else:
             raise ValueError(f"Unexpected job status: {job.state.name}")
 
+        total_tokens = None
+        if user_status == UserStatus.SUCCEEDED:
+            total_tokens = self._calculate_total_tokens(job)
+
         return JobReport(provider="google",
                          job_id=job.name,
                          user_assigned_status=user_status,
                          latency_seconds=latency,
+                         total_tokens=total_tokens,
                          service_reported_details=status)
 
     def cancel_job(self, job_id):
@@ -135,6 +140,34 @@ class GoogleProvider(BatchProvider):
 
     def get_provider_name(self):
         return "google"
+
+    def _calculate_total_tokens(self, job):
+        """Downloads the result file and calculates the total tokens used."""
+        total_tokens = 0
+        if job.state.name == 'JOB_STATE_SUCCEEDED' and job.dest and job.dest.file_name:
+            try:
+                logger.info("Calculating total tokens for job %s", job.name)
+                result_file_name = job.dest.file_name
+                file_content = self.client.files.download(file=result_file_name)
+                
+                content_str = file_content.decode('utf-8').strip()
+                
+                # The result file contains one JSON object per line
+                for line in content_str.splitlines():
+                    if not line:
+                        continue
+                    try:
+                        result = json.loads(line)
+                        if 'response' in result and 'usageMetadata' in result['response']:
+                            total_tokens += result['response']['usageMetadata'].get('totalTokenCount', 0)
+                    except json.JSONDecodeError:
+                        logger.warning("Could not decode JSON line: %s", line)
+                
+                logger.info("Total tokens calculated for job %s: %d", job.name, total_tokens)
+                return total_tokens
+            except Exception as e:
+                logger.error("Error calculating tokens for job %s: %s", job.name, e)
+        return None
 
     def download_results(self, job, output_file):
         """Downloads the results of a completed batch job.

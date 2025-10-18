@@ -65,6 +65,7 @@ class JobReport:
     job_id: str
     user_assigned_status: UserStatus
     latency_seconds: Optional[float]
+    total_tokens: Optional[int]
     service_reported_details: ServiceReportedJobDetails
 
     def to_json(self):
