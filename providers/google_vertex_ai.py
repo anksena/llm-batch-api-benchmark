@@ -1,176 +1,211 @@
 """Batch processing provider for Google."""
-import os
-import json
+
 from datetime import datetime, timedelta, timezone
+from enum import Enum
+import json
+import os
+from absl import flags
+from data_models import JobReport, ServiceReportedJobDetails, UserStatus
 from google import genai as google_genai
 from google.cloud import storage
-from .base import BatchProvider
 from logger import get_logger
-from data_models import ServiceReportedJobDetails, JobReport, UserStatus
-from enum import Enum
+from .base import BatchProvider
 
 
 class GoogleVertexAiJobStatus(Enum):
-    JOB_STATE_PENDING = "JOB_STATE_PENDING"
-    JOB_STATE_RUNNING = "JOB_STATE_RUNNING"
-    JOB_STATE_SUCCEEDED = "JOB_STATE_SUCCEEDED"
-    JOB_STATE_FAILED = "JOB_STATE_FAILED"
-    JOB_STATE_CANCELLED = "JOB_STATE_CANCELLED"
-    JOB_STATE_EXPIRED = "JOB_STATE_EXPIRED"
+  JOB_STATE_PENDING = "JOB_STATE_PENDING"
+  JOB_STATE_RUNNING = "JOB_STATE_RUNNING"
+  JOB_STATE_SUCCEEDED = "JOB_STATE_SUCCEEDED"
+  JOB_STATE_FAILED = "JOB_STATE_FAILED"
+  JOB_STATE_CANCELLED = "JOB_STATE_CANCELLED"
+  JOB_STATE_EXPIRED = "JOB_STATE_EXPIRED"
+  JOB_STATE_UNSPECIFIED = "JOB_STATE_UNSPECIFIED"
+  JOB_STATE_QUEUED = "JOB_STATE_QUEUED"
+  JOB_STATE_CANCELLING = "JOB_STATE_CANCELLING"
+  JOB_STATE_PAUSED = "JOB_STATE_PAUSED"
+  JOB_STATE_UPDATING = "JOB_STATE_UPDATING"
+  JOB_STATE_PARTIALLY_SUCCEEDED = "JOB_STATE_PARTIALLY_SUCCEEDED"
 
 
 logger = get_logger(__name__)
 
 
 class GoogleVertexAiProvider(BatchProvider):
-    """Batch processing provider for Google."""
+  """Batch processing provider for Google."""
 
-    MODEL_NAME = "gemini-2.5-flash-lite"
-    GCS_INPUT_BUCKET_NAME = "llm-batch-api-benchmark-input-bucket"
-    GCS_OUTPUT_BUCKET_NAME = "llm-batch-api-benchmark-output-bucket"
-    GCS_INPUT_PREFIX = "gemini_batch_src/"
-    GCS_OUTPUT_PREFIX = "results/"
-    
-    
-    def __init__(self, api_key):
-       
-        self.project = os.getenv("GOOGLE_CLOUD_PROJECT")
-        self.location = os.getenv("GOOGLE_CLOUD_LOCATION")
-        self.gcs_client = storage.Client(project=self.project)
-        self.gcs_input_bucket = self.gcs_client.bucket(self.GCS_INPUT_BUCKET_NAME)
-        self.gcs_output_bucket = self.gcs_client.bucket(self.GCS_OUTPUT_BUCKET_NAME)
-        super().__init__(api_key)
-    
-    
-    @property
-    def _job_status_enum(self):
-        return GoogleVertexAiJobStatus
+  MODEL_NAME = "gemini-2.5-flash-lite"
 
-    @property
-    def _job_status_attribute(self):
-        return "state.name"
+  GCS_INPUT_PREFIX = "gemini_batch_src/"
+  GCS_OUTPUT_PREFIX = "results/"
 
-    def _initialize_client(self, api_key):
-        return google_genai.Client(vertexai=True, project=self.project, location=self.location)
+  def __init__(self, api_key):
 
-    def _create_single_batch_job(self, job_index: int, total_jobs: int,
-                               prompts: list[str]) -> str:
-        file_path = f"gemini-batch-request-{job_index}.jsonl"
-        with open(file_path, "w", encoding="utf-8") as f:
-            for i, prompt in enumerate(prompts):
-                gemini_req = {
-                    "key": f"request-{i}",
-                    "request": {
-                        "contents": [{
-                            "role": "user",
-                            "parts": [{
-                                "text": prompt
-                            }]
-                        }],
-                        "generation_config": {
-                            "max_output_tokens": self.MAX_TOKENS
-                        }
-                    }
-                }
-                f.write(json.dumps(gemini_req) + "\n")
-
-        gcs_blob = self.gcs_input_bucket.blob(f"{self.GCS_INPUT_PREFIX}{file_path}")
-        gcs_blob.upload_from_filename(file_path)
-        os.remove(file_path)
-        
-        input_data= f"gs://{self.GCS_INPUT_BUCKET_NAME}/{self.GCS_INPUT_PREFIX}{file_path}"
-
-        job = self.client.batches.create(
-            model=self.MODEL_NAME,
-            src=input_data,
-        )
-        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
-                    job.name)
-        return job.name
-
-    def _get_job_list(self, hours_ago):
-        all_jobs = []
-        time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
-        for job in self.client.batches.list(config={'page_size': 10}):
-            if job.create_time < time_threshold:
-                break
-            all_jobs.append(job)
-        return all_jobs
-
-    def _get_job_create_time(self, job):
-        return job.create_time
-
-    def _create_report_from_provider_job(self, job):
-        latency = None
-        if job.state.name == 'JOB_STATE_SUCCEEDED' and job.end_time:
-            latency = round((job.end_time - job.create_time).total_seconds(), 2)
-
-        status = ServiceReportedJobDetails(
-            job_id=job.name,
-            model=job.model,
-            service_job_status=job.state.name,
-            created_at=job.create_time.isoformat(),
-            ended_at=job.end_time.isoformat() if job.end_time else None,
+    self.project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    self.location = os.getenv("GOOGLE_CLOUD_LOCATION")
+    self.gcs_client = storage.Client(project=self.project)
+    FLAGS = flags.FLAGS
+    if (
+        not FLAGS.vertex_ai_gcs_input_bucket_name
+        or not FLAGS.vertex_ai_gcs_output_bucket_name
+    ):
+        raise ValueError(
+            "Both --vertex_ai_gcs_input_bucket_name and"
+            " --vertex_ai_gcs_output_bucket_name are required for GoogleVertexAi"
+            " provider."
         )
 
-        if job.state.name == 'JOB_STATE_SUCCEEDED':
-            user_status = UserStatus.SUCCEEDED
-        elif job.state.name == 'JOB_STATE_CANCELLED':
-            if job.end_time and (job.end_time -
-                                 job.create_time) > timedelta(days=1):
-                user_status = UserStatus.CANCELLED_TIMED_OUT
-            else:
-                user_status = UserStatus.CANCELLED_ON_DEMAND
-        elif job.state.name == 'JOB_STATE_FAILED':
-            user_status = UserStatus.FAILED
-        elif job.state.name == 'JOB_STATE_EXPIRED':
-            user_status = UserStatus.CANCELLED_TIMED_OUT
-        elif job.state.name in ('JOB_STATE_PENDING', 'JOB_STATE_RUNNING'):
-            if self._should_cancel_for_timeout(job.create_time):
-                user_status = UserStatus.CANCELLED_TIMED_OUT
-                logger.warning("Job %s has timed out. Cancelling...", job.name)
-                self.cancel_job(job.name)
-            else:
-                user_status = UserStatus.IN_PROGRESS
-        else:
-            raise ValueError(f"Unexpected job status: {job.state.name}")
+    self.gcs_input_bucket_name = FLAGS.vertex_ai_gcs_input_bucket_name
+    self.gcs_output_bucket_name = FLAGS.vertex_ai_gcs_output_bucket_name
+    self.gcs_input_bucket = self.gcs_client.bucket(self.gcs_input_bucket_name)
+    self.gcs_output_bucket = self.gcs_client.bucket(self.gcs_output_bucket_name)
+    super().__init__(api_key)
 
-        return JobReport(provider="google_vertex_ai",
-                         job_id=job.name,
-                         user_assigned_status=user_status,
-                         latency_seconds=latency,
-                         service_reported_details=status)
+  @property
+  def _job_status_enum(self):
+    return GoogleVertexAiJobStatus
 
-    def cancel_job(self, job_id):
-        logger.info("Attempting to delete job (Google's equivalent of cancel): %s",
-                    job_id)
-        self.client.batches.delete(name=job_id)
-        logger.info("Successfully sent delete request for job: %s", job_id)
+  @property
+  def _job_status_attribute(self):
+    return "state.name"
 
-    def get_job_details_from_provider(self, job_id):
-        return self.client.batches.get(name=job_id)
+  def _initialize_client(self, api_key):
+    return google_genai.Client(
+        vertexai=True, project=self.project, location=self.location
+    )
 
-    def get_provider_name(self):
-        return "google_vertex_ai"
+  def _create_single_batch_job(
+      self, job_index: int, total_jobs: int, prompts: list[str]
+  ) -> str:
+    file_path = f"gemini-batch-request-{job_index}.jsonl"
+    with open(file_path, "w", encoding="utf-8") as f:
+      for i, prompt in enumerate(prompts):
+        gemini_req = {
+            "key": f"request-{i}",
+            "request": {
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generation_config": {"max_output_tokens": self.MAX_TOKENS},
+            },
+        }
+        f.write(json.dumps(gemini_req) + "\n")
 
-    def download_results(self, job, output_file):
-        """Downloads the results of a completed batch job.
+    gcs_blob = self.gcs_input_bucket.blob(f"{self.GCS_INPUT_PREFIX}{file_path}")
+    gcs_blob.upload_from_filename(file_path)
+    os.remove(file_path)
 
-        Args:
-            job: The provider-specific job object.
-            output_file: The path to the output file to save the results to.
-        """
-        if job.state.name == 'JOB_STATE_SUCCEEDED':
-            if job.dest and job.dest.file_name:
-                result_file_name = job.dest.file_name
-                logger.info("Results are in file: %s", result_file_name)
-                logger.info("Downloading result file content...")
-                file_content = self.client.files.download(file=result_file_name)
-                with open(output_file, "wb") as f:
-                    f.write(file_content)
-                logger.info("Successfully downloaded results to %s", output_file)
-            else:
-                logger.info("No results file found for job %s", job.name)
-        else:
-            logger.warning("Job %s did not succeed. Final state: %s", job.name,
-                           job.state.name)
+    input_data = (
+        f"gs://{self.gcs_input_bucket_name}/{self.GCS_INPUT_PREFIX}{file_path}"
+    )
+
+    job = self.client.batches.create(
+        model=self.MODEL_NAME,
+        src=input_data,
+    )
+    logger.info(
+        "Created batch job %d/%d: %s", job_index + 1, total_jobs, job.name
+    )
+    return job.name
+
+  def _get_job_list(self, hours_ago):
+    all_jobs = []
+    time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    for job in self.client.batches.list(config={"page_size": 10}):
+      if job.create_time < time_threshold:
+        break
+      all_jobs.append(job)
+    return all_jobs
+
+  def _get_job_create_time(self, job):
+    return job.create_time
+
+  def _create_report_from_provider_job(self, job):
+    latency = None
+    if job.state.name == "JOB_STATE_SUCCEEDED" and job.end_time:
+      latency = round((job.end_time - job.create_time).total_seconds(), 2)
+
+    status = ServiceReportedJobDetails(
+        job_id=job.name,
+        model=job.model,
+        service_job_status=job.state.name,
+        created_at=job.create_time.isoformat(),
+        ended_at=job.end_time.isoformat() if job.end_time else None,
+    )
+
+    if job.state.name == "JOB_STATE_SUCCEEDED":
+      user_status = UserStatus.SUCCEEDED
+    elif job.state.name == "JOB_STATE_CANCELLED":
+      if job.end_time and (job.end_time - job.create_time) > timedelta(days=1):
+        user_status = UserStatus.CANCELLED_TIMED_OUT
+      else:
+        user_status = UserStatus.CANCELLED_ON_DEMAND
+    elif (
+        job.state.name == "JOB_STATE_FAILED"
+        or job.state.name == "JOB_STATE_PARTIALLY_SUCCEEDED"
+    ):
+      user_status = UserStatus.FAILED
+    elif job.state.name == "JOB_STATE_EXPIRED":
+      user_status = UserStatus.CANCELLED_TIMED_OUT
+    elif job.state.name == "JOB_STATE_CANCELLING":
+      if self._should_cancel_for_timeout(job.create_time):
+        user_status = UserStatus.CANCELLED_TIMED_OUT
+      else:
+        user_status = UserStatus.CANCELLED_ON_DEMAND
+    elif job.state.name in (
+        "JOB_STATE_PENDING",
+        "JOB_STATE_RUNNING",
+        "JOB_STATE_UNSPECIFIED",
+        "JOB_STATE_QUEUED",
+        "JOB_STATE_PAUSED",
+        "JOB_STATE_UPDATING",
+    ):
+      if self._should_cancel_for_timeout(job.create_time):
+        user_status = UserStatus.CANCELLED_TIMED_OUT
+        logger.warning("Job %s has timed out. Cancelling...", job.name)
+        self.cancel_job(job.name)
+      else:
+        user_status = UserStatus.IN_PROGRESS
+    else:
+      raise ValueError(f"Unexpected job status: {job.state.name}")
+
+    return JobReport(
+        provider="google_vertex_ai",
+        job_id=job.name,
+        user_assigned_status=user_status,
+        latency_seconds=latency,
+        service_reported_details=status,
+    )
+
+  def cancel_job(self, job_id):
+    logger.info(
+        "Attempting to delete job (Google's equivalent of cancel): %s", job_id
+    )
+    self.client.batches.delete(name=job_id)
+    logger.info("Successfully sent delete request for job: %s", job_id)
+
+  def get_job_details_from_provider(self, job_id):
+    return self.client.batches.get(name=job_id)
+
+  def get_provider_name(self):
+    return "google_vertex_ai"
+
+  def download_results(self, job, output_file):
+    """Downloads the results of a completed batch job.
+
+    Args:
+        job: The provider-specific job object.
+        output_file: The path to the output file to save the results to.
+    """
+    if job.state.name == "JOB_STATE_SUCCEEDED":
+      if job.dest and job.dest.file_name:
+        result_file_name = job.dest.file_name
+        logger.info("Results are in file: %s", result_file_name)
+        logger.info("Downloading result file content...")
+        file_content = self.client.files.download(file=result_file_name)
+        with open(output_file, "wb") as f:
+          f.write(file_content)
+        logger.info("Successfully downloaded results to %s", output_file)
+      else:
+        logger.info("No results file found for job %s", job.name)
+    else:
+      logger.warning(
+          "Job %s did not succeed. Final state: %s", job.name, job.state.name
+      )

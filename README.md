@@ -208,6 +208,18 @@ This section documents the mapping from the provider-specific job statuses to th
 |           | `JOB_STATE_CANCELLED`   | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
 |           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
 |           | `JOB_STATE_RUNNING`     | `IN_PROGRESS`           |                                                                       |
+| Google-Vertex AI    | `JOB_STATE_SUCCEEDED`   | `SUCCEEDED`   |                                                                       |
+|           | `JOB_STATE_FAILED`      | `FAILED`                |                                                                       |
+|           | `JOB_STATE_PARTIALLY_SUCCEEDED`      | `FAILED`   |                                                                       |
+|           | `JOB_STATE_EXPIRED`     | `CANCELLED_TIMED_OUT`   | The job expired after 48 hours.                                       |
+|           | `JOB_STATE_CANCELLED`, `JOB_STATE_CANCELLING`     | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.      |
+|           | `JOB_STATE_CANCELLED`, `JOB_STATE_CANCELLING`     | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.       |
+|           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_RUNNING`     | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_QUEUED`      | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_UNSPECIFIED` | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_PAUSED`      | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_UPDATING`    | `IN_PROGRESS`           |                                                                       |
 | OpenAI    | `completed`             | `SUCCEEDED`             |                                                                       |
 |           | `failed`                | `FAILED`                |                                                                       |
 |           | `expired`               | `CANCELLED_TIMED_OUT`   | The batch could not be completed within the SLA time window.          |
