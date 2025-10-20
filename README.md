@@ -25,6 +25,7 @@ As of October 15, 2025, the following models are used for the batch jobs:
 | Provider  | Model Name                   |
 | --------- | ---------------------------- |
 | Google    | `gemini-2.5-flash-lite`      |
+| Google-Vertex AI    | `gemini-2.5-flash-lite`      |
 | OpenAI    | `gpt-4o-mini`                |
 | Anthropic | `claude-3-haiku-20240307`    |
 
@@ -52,6 +53,12 @@ These models are defined as constants in their respective provider files (e.g., 
     OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
     ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
     ```
+    If you are using Google Vertex AI provider, please also add your GCP project and location:
+    ```
+    GOOGLE_CLOUD_PROJECT="YOUR_GCP_PROJECT
+    GOOGLE_CLOUD_LOCATION="YOUR_GCP_LOCATION"
+    ```
+
 
 ## Usage
 
@@ -168,6 +175,24 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
     - `JOB_STATE_PENDING`
     - `JOB_STATE_RUNNING`
 
+### Google-Vertex AI
+
+- **Source:** [https://cloud.google.com/vertex-ai/docs/reference/rest/v1/JobState](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/JobState)
+- **Terminal States:**
+    - `JOB_STATE_SUCCEEDED`
+    - `JOB_STATE_FAILED`
+    - `JOB_STATE_CANCELLED`
+    - `JOB_STATE_CANCELLING`
+    - `JOB_STATE_PARTIALLY_SUCCEEDED`
+    - `JOB_STATE_EXPIRED`
+- **Non-Terminal States:**
+    - `JOB_STATE_PENDING`
+    - `JOB_STATE_RUNNING`
+    - `JOB_STATE_PAUSED`
+    - `JOB_STATE_UNSPECIFIED`
+    - `JOB_STATE_QUEUED`
+    - `JOB_STATE_UPDATING`
+
 ### OpenAI
 
 - **Source:** [https://platform.openai.com/docs/api-reference/batch](https://platform.openai.com/docs/api-reference/batch)
@@ -209,6 +234,18 @@ This section documents the mapping from the provider-specific job statuses to th
 |           | `JOB_STATE_CANCELLED`   | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.                                 |
 |           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
 |           | `JOB_STATE_RUNNING`     | `IN_PROGRESS`           |                                                                       |
+| Google-Vertex AI    | `JOB_STATE_SUCCEEDED`   | `SUCCEEDED`   |                                                                       |
+|           | `JOB_STATE_FAILED`      | `FAILED`                |                                                                       |
+|           | `JOB_STATE_PARTIALLY_SUCCEEDED`      | `FAILED`   |                                                                       |
+|           | `JOB_STATE_EXPIRED`     | `CANCELLED_TIMED_OUT`   | The job expired after 48 hours.                                       |
+|           | `JOB_STATE_CANCELLED`, `JOB_STATE_CANCELLING`     | `CANCELLED_TIMED_OUT`   | If the job ran for more than 24 hours.      |
+|           | `JOB_STATE_CANCELLED`, `JOB_STATE_CANCELLING`     | `CANCELLED_ON_DEMAND`   | If the job was cancelled by the user.       |
+|           | `JOB_STATE_PENDING`     | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_RUNNING`     | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_QUEUED`      | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_UNSPECIFIED` | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_PAUSED`      | `IN_PROGRESS`           |                                                                       |
+|           | `JOB_STATE_UPDATING`    | `IN_PROGRESS`           |                                                                       |
 | OpenAI    | `completed`             | `SUCCEEDED`             |                                                                       |
 |           | `failed`                | `FAILED`                |                                                                       |
 |           | `expired`               | `CANCELLED_TIMED_OUT`   | The batch could not be completed within the SLA time window.          |

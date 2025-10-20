@@ -1,6 +1,7 @@
 import os
 from logger import get_logger
 from providers.google import GoogleProvider
+from providers.google_vertex_ai import GoogleVertexAiProvider
 from providers.openai import OpenAIProvider
 from providers.anthropic import AnthropicProvider
 
@@ -10,6 +11,10 @@ logger = get_logger(__name__)
 PROVIDER_REGISTRY = {
     "google": {
         "class": GoogleProvider,
+        "api_key_env": "GOOGLE_API_KEY"
+    },
+    "google_vertex_ai": {
+        "class": GoogleVertexAiProvider,
         "api_key_env": "GOOGLE_API_KEY"
     },
     "openai": {
