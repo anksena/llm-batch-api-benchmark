@@ -25,6 +25,7 @@ As of October 15, 2025, the following models are used for the batch jobs:
 | Provider  | Model Name                   |
 | --------- | ---------------------------- |
 | Google    | `gemini-2.5-flash-lite`      |
+| Google-Vertex AI    | `gemini-2.5-flash-lite`      |
 | OpenAI    | `gpt-4o-mini`                |
 | Anthropic | `claude-3-haiku-20240307`    |
 
@@ -52,6 +53,12 @@ These models are defined as constants in their respective provider files (e.g., 
     OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
     ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
     ```
+    If you are using Google Vertex AI provider, please also add your GCP project and location:
+    ```
+    GOOGLE_CLOUD_PROJECT="YOUR_GCP_PROJECT
+    GOOGLE_CLOUD_LOCATION="YOUR_GCP_LOCATION"
+    ```
+
 
 ## Usage
 
@@ -167,6 +174,24 @@ The `UserStatus` enum in `data_models.py` defines a set of standardized statuses
 - **Non-Terminal States:**
     - `JOB_STATE_PENDING`
     - `JOB_STATE_RUNNING`
+
+### Google-Vertex AI
+
+- **Source:** [https://cloud.google.com/vertex-ai/docs/reference/rest/v1/JobState](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/JobState)
+- **Terminal States:**
+    - `JOB_STATE_SUCCEEDED`
+    - `JOB_STATE_FAILED`
+    - `JOB_STATE_CANCELLED`
+    - `JOB_STATE_CANCELLING`
+    - `JOB_STATE_PARTIALLY_SUCCEEDED`
+    - `JOB_STATE_EXPIRED`
+- **Non-Terminal States:**
+    - `JOB_STATE_PENDING`
+    - `JOB_STATE_RUNNING`
+    - `JOB_STATE_PAUSED`
+    - `JOB_STATE_UNSPECIFIED`
+    - `JOB_STATE_QUEUED`
+    - `JOB_STATE_UPDATING`
 
 ### OpenAI
 
