@@ -9,14 +9,6 @@ This project provides a unified command-line interface to test and compare the b
 - **Asynchronous Job Handling:** Scripts demonstrate the full workflow of creating a batch job, polling for its completion, and retrieving the results.
 - **Token Usage Reporting:** Automatically calculates and reports the total token usage for successfully completed batch jobs.
 - **Configuration:** Uses a `.env` file to manage API keys.
->>>>>>>
-<task_progress>
-- [x] Implement token calculation feature for all providers
-- [x] Add unit tests for all providers
-- [x] Perform end-to-end validation for all providers
-- [ ] Update `README.md` to reflect the new feature
-- [ ] Commit all changes
-</task_progress>
 
 ## Project Structure
 
