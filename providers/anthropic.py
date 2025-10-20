@@ -1,4 +1,5 @@
 """Batch processing provider for Anthropic."""
+import json
 from datetime import datetime, timezone, timedelta
 from anthropic import Anthropic
 from .base import BatchProvider
@@ -73,24 +74,6 @@ class AnthropicProvider(BatchProvider):
         if job.processing_status == 'ended' and job.request_counts.succeeded == total_requests and job.ended_at:
             latency = round((job.ended_at - job.created_at).total_seconds(), 2)
 
-        # The Anthropic API returns a job object with the following structure:
-        # {
-        #   "id": "msgbatch_01HkcTjaV5uDC8jWR4ZsDV8d",
-        #   "type": "message_batch",
-        #   "processing_status": "in_progress",
-        #   "request_counts": {
-        #     "processing": 2,
-        #     "succeeded": 0,
-        #     "errored": 0,
-        #     "canceled": 0,
-        #     "expired": 0
-        #   },
-        #   "ended_at": null,
-        #   "created_at": "2024-09-24T18:37:24.100435Z",
-        #   "expires_at": "2024-09-25T18:37:24.100435Z",
-        #   "cancel_initiated_at": null,
-        #   "results_url": null
-        # }
         status = ServiceReportedJobDetails(
             job_id=job.id,
             model=self.MODEL_NAME,
@@ -122,10 +105,16 @@ class AnthropicProvider(BatchProvider):
             user_status = UserStatus.SUCCEEDED
         else:
             raise ValueError(f"Unexpected job status: {job.processing_status}")
+        
+        total_tokens = None
+        if user_status == UserStatus.SUCCEEDED:
+            total_tokens = self._calculate_total_tokens(job)
+
         return JobReport(provider="anthropic",
                          job_id=job.id,
                          user_assigned_status=user_status,
                          latency_seconds=latency,
+                         total_tokens=total_tokens,
                          service_reported_details=status)
 
     def _handle_in_progress_job(self, job, status, latency):
@@ -139,6 +128,7 @@ class AnthropicProvider(BatchProvider):
                          job_id=job.id,
                          user_assigned_status=user_status,
                          latency_seconds=latency,
+                         total_tokens=None,
                          service_reported_details=status)
 
     def cancel_job(self, job_id):
@@ -152,6 +142,33 @@ class AnthropicProvider(BatchProvider):
 
     def get_provider_name(self):
         return "anthropic"
+
+    def _calculate_total_tokens(self, job):
+        """Downloads the result file and calculates the total tokens used."""
+        total_tokens = 0
+        if job.processing_status == 'ended' and job.results_url:
+            try:
+                logger.info("Calculating total tokens for job %s", job.id)
+                response = self.client.get(job.results_url, cast_to=bytes)
+                content_str = response.decode('utf-8').strip()
+                
+                for line in content_str.splitlines():
+                    if not line:
+                        continue
+                    try:
+                        result = json.loads(line)
+                        if 'result' in result and 'message' in result['result'] and 'usage' in result['result']['message']:
+                            # Anthropic uses input_tokens and output_tokens
+                            total_tokens += result['result']['message']['usage'].get('input_tokens', 0)
+                            total_tokens += result['result']['message']['usage'].get('output_tokens', 0)
+                    except json.JSONDecodeError:
+                        logger.warning("Could not decode JSON line: %s", line)
+                
+                logger.info("Total tokens calculated for job %s: %d", job.id, total_tokens)
+                return total_tokens
+            except Exception as e:
+                logger.error("Error calculating tokens for job %s: %s", job.id, e)
+        return None
 
     def download_results(self, job, output_file):
         """Downloads the results of a completed batch job.
