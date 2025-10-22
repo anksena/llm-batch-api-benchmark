@@ -12405,6 +12405,4 @@ PROMPTS = [
   "What are three key ethical considerations for LLMs?",
   "What are the ethical implications of AI sentience, and how can we prepare for it?",
   "How can I improve my prompts for LLMs to get more accurate and helpful responses?",
-
-
 ]
