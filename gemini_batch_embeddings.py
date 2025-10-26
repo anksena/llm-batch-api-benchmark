@@ -50,7 +50,7 @@ def generate_input_file(texts: list[str]) -> None:
                         "parts": [{"text": text}]
                     },
                     # Optional: Reduce dimensions for storage/cost optimization
-                    "output_dimensionality": 1024
+                    "output_dimensionality": 512
                 }
             }
             f.write(json.dumps(gemini_req) + "\n")

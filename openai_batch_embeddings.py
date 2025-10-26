@@ -49,10 +49,11 @@ def run():
                     "custom_id": f"request-{i}",
                     "method": "POST",
                     "url": "/v1/embeddings",
-                    "body": {
-                        "input": text,
-                        "model": "text-embedding-3-small"
-                    }
+                "body": {
+                    "input": text,
+                    "model": "text-embedding-3-small",
+                    "dimensions": 512
+                }
                 }) + "\n")
 
         # Upload the batch file
