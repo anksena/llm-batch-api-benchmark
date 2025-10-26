@@ -11,6 +11,7 @@ To run this script:
 """
 import os
 import json
+import time
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -40,7 +41,7 @@ def run():
 
     # Create the batch file
     batch_file_path = "batch_files/openai_batch.jsonl"
-    with open(batch_file_path, "w") as f:
+    with open(batch_file_path, "w", encoding="utf-8") as f:
         for i, text in enumerate(texts):
             f.write(json.dumps({
                 "custom_id": f"request-{i}",
@@ -50,19 +51,47 @@ def run():
                     "input": text,
                     "model": "text-embedding-3-small"
                 }
-            }) + '\\n')
+            }) + "\n")
 
     # Upload the batch file
     print("Uploading batch file...")
-    try:
-        batch_file = client.files.create(
-            file=open(batch_file_path, "rb"),
-            purpose="batch"
-        )
-        print("File uploaded successfully:")
-        print(batch_file)
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    batch_file = client.files.create(
+        file=open(batch_file_path, "rb"),
+        purpose="batch"
+    )
+    print("File uploaded successfully:")
+    print(batch_file)
+
+    # Create the batch job
+    print("Creating batch job...")
+    batch_job = client.batches.create(
+        input_file_id=batch_file.id,
+        endpoint="/v1/embeddings",
+        completion_window="24h"
+    )
+    print(f"Successfully created batch job: {batch_job.id}")
+
+    # Monitor the batch job
+    print(f"Monitoring batch job with ID: {batch_job.id}")
+    while True:
+        batch_job = client.batches.retrieve(batch_job.id)
+        if batch_job.status == "completed":
+            print("Batch job completed.")
+            break
+        elif batch_job.status == "failed":
+            print("Batch job failed.")
+            break
+        time.sleep(10)
+
+    # Download and process the results
+    if batch_job.status == "completed":
+        result_file_id = batch_job.output_file_id
+        result_content = client.files.content(result_file_id).text
+        print("Embeddings:")
+        for line in result_content.splitlines():
+            data = json.loads(line)
+            embedding = data['response']['body']['data'][0]['embedding']
+            print(f"  - Vector: {embedding[:10]}... (truncated)")
 
 
 if __name__ == "__main__":
