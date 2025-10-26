@@ -21,6 +21,7 @@ import warnings
 from google import genai as google_genai
 from google.genai.types import JobState # Import JobState enum
 from dotenv import load_dotenv
+from embedding_prompts import SAMPLE_TEXTS
 
 load_dotenv()
 
@@ -65,13 +66,7 @@ def run():
     client = google_genai.Client(api_key=API_KEY)
 
     # Sample texts for the batch embedding job
-    texts = [
-        "What is the meaning of life?",
-        "How much wood would a woodchuck chuck?",
-        "How does the human brain process language?",
-        "Benchmarking large language models is a complex task.",
-        "The most cost-effective method is asynchronous batching.",
-    ]
+    texts = SAMPLE_TEXTS
 
     uploaded_file = None
     batch_job = None
@@ -135,27 +130,22 @@ def run():
                 result_content = result_file_bytes.decode('utf-8')
 
             print("\n--- First 3 Results (JSONL Lines) ---")
-            for i, line in enumerate(result_content.splitlines()):
-                if i < 3:
-                    # Print the JSON object for visual inspection
+            with open("gemini_embeddings.jsonl", "w", encoding="utf-8") as f_out:
+                for i, line in enumerate(result_content.splitlines()):
                     result_json = json.loads(line)
-                    print(f"Key: {result_json.get('key')}")
-                    # Print a snippet of the embedding vector
-                    # NOTE: Accessing embedding values via result_json['response']['embedding']['values']
-                    if 'response' in result_json and 'embedding' in result_json.get('response', {}): # Check response exists
-                         # Ensure 'embedding' exists within 'response'
+                    if 'response' in result_json and 'embedding' in result_json.get('response', {}):
                          if 'values' in result_json['response']['embedding']:
-                              embedding_snippet = result_json['response']['embedding']['values'][:5]
-                              print(f"  Embedding Snippet: {embedding_snippet}...")
-                         else:
-                              print(f"  'values' key missing in embedding object: {result_json['response']['embedding']}")
-                    elif 'error' in result_json:
+                              embedding = result_json['response']['embedding']['values']
+                              f_out.write(json.dumps({"embedding": embedding}) + "\n")
+                              if i < 3:
+                                  print(f"Key: {result_json.get('key')}")
+                                  embedding_snippet = embedding[:5]
+                                  print(f"  Embedding Snippet: {embedding_snippet}...")
+                                  print("-" * 20)
+                    elif 'error' in result_json and i < 3:
                          print(f"  Error processing this request: {result_json.get('error')}")
-                    else:
+                    elif i < 3:
                          print(f"  Unexpected response structure: {result_json.get('response')}")
-                    print("-" * 20)
-                else:
-                    break
         else:
             # FIX: Only report the final non-success state name
             print(f"\nJob FAILED or CANCELLED. Final state: {batch_job.state.name}")
