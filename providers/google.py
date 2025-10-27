@@ -142,6 +142,19 @@ class GoogleProvider(BatchProvider):
     def get_provider_name(self):
         return "google"
 
+    def create_embedding_jobs(self, num_jobs: int, requests_per_job: int,
+                            prompts: list[str]) -> list[str]:
+        """Creates a specified number of batch embedding jobs."""
+        job_ids: list[str] = []
+        for i in range(num_jobs):
+            start: int = i * requests_per_job
+            end: int = start + requests_per_job
+            job_prompts: list[str] = prompts[start:end]
+            job_id: str = self._create_single_embedding_job(i, num_jobs,
+                                                            job_prompts)
+            job_ids.append(job_id)
+        return job_ids
+
     def _create_single_embedding_job(self, job_index: int, total_jobs: int,
                                    prompts: list[str]) -> str:
         """Creates a single batch embedding job with multiple requests."""
@@ -149,11 +162,14 @@ class GoogleProvider(BatchProvider):
         with open(file_path, "w", encoding="utf-8") as f:
             for i, prompt in enumerate(prompts):
                 google_req = {
-                    "model": self.EMBEDDING_MODEL_NAME,
-                    "content": {
-                        "parts": [{"text": prompt}]
-                    },
-                    "output_dimensionality": 512
+                    "key": f"request-{i}",
+                    "request": {
+                        "model": self.EMBEDDING_MODEL_NAME,
+                        "content": {
+                            "parts": [{"text": prompt}]
+                        },
+                        "output_dimensionality": 512
+                    }
                 }
                 f.write(json.dumps(google_req) + "\n")
         

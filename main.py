@@ -46,13 +46,11 @@ flags.DEFINE_multi_enum("action", [], [a.value for a in Action],
                         "The action(s) to perform.")
 flags.DEFINE_enum("task", Task.TEXT_GENERATION.value, [t.value for t in Task],
                   "The type of task to perform.")
-flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
-flags.DEFINE_integer(
-    "requests_per_job", 1, "The number of inference requests per batch job."
-)
-flags.DEFINE_integer(
-    "hours_ago", 36, "The number of hours ago to check for recent jobs."
-)
+flags.DEFINE_integer("num_jobs", 1, "The number of new batch jobs to create.")
+flags.DEFINE_integer("requests_per_job", 1,
+                     "The number of inference requests per batch job.")
+flags.DEFINE_integer("hours_ago", 36,
+                     "The number of hours ago to check for recent jobs.")
 flags.DEFINE_string("job_id", None, "The job ID to cancel.")
 flags.DEFINE_string(
     "state_file", None, "The path to the state file to process."
