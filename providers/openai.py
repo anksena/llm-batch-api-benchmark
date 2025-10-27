@@ -150,6 +150,35 @@ class OpenAIProvider(BatchProvider):
     def get_provider_name(self):
         return "openai"
 
+    def _create_single_embedding_job(self, job_index: int, total_jobs: int,
+                                   prompts: list[str]) -> str:
+        """Creates a single batch embedding job with multiple requests."""
+        file_path = f"openai-batch-request-{job_index}.jsonl"
+        with open(file_path, "w", encoding="utf-8") as f:
+            for i, prompt in enumerate(prompts):
+                openai_req = {
+                    "custom_id": f"request-{i}",
+                    "method": "POST",
+                    "url": "/v1/embeddings",
+                    "body": {
+                        "input": prompt,
+                        "model": "text-embedding-3-small",
+                        "dimensions": 512
+                    }
+                }
+                f.write(json.dumps(openai_req) + "\n")
+
+        with open(file_path, "rb") as f:
+            batch_file = self.client.files.create(file=f, purpose="batch")
+        os.remove(file_path)
+
+        job = self.client.batches.create(input_file_id=batch_file.id,
+                                         endpoint="/v1/embeddings",
+                                         completion_window="24h")
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    job.id)
+        return job.id
+
     def _calculate_total_tokens(self, job):
         """Downloads the result file and calculates the total tokens used."""
         total_tokens = 0
@@ -166,8 +195,14 @@ class OpenAIProvider(BatchProvider):
                         continue
                     try:
                         result = json.loads(line)
-                        if 'response' in result and 'body' in result['response'] and 'usage' in result['response']['body']:
-                            total_tokens += result['response']['body']['usage'].get('total_tokens', 0)
+                        if 'response' in result and 'body' in result['response']:
+                            body = result['response']['body']
+                            if 'usage' in body:
+                                total_tokens += body['usage'].get('total_tokens', 0)
+                            elif 'data' in body and body['data'] and 'embedding' in body['data'][0]:
+                                # This is an embedding response, which doesn't have a token count.
+                                # We can either skip it or estimate it. For now, we'll skip.
+                                pass
                     except json.JSONDecodeError:
                         logger.warning("Could not decode JSON line: %s", line)
                 
