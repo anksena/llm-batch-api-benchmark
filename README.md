@@ -5,6 +5,7 @@ This project provides a unified command-line interface to test and compare the b
 ## Features
 
 - **Unified CLI:** A single `main.py` script to create, list, and cancel batch jobs for both Gemini and OpenAI.
+- **Dual Task Support:** Supports both `text-generation` and `embedding` tasks.
 - **Provider Abstraction:** The `batch_processor.py` module abstracts the provider-specific logic, making it easy to add new providers in the future.
 - **Asynchronous Job Handling:** Scripts demonstrate the full workflow of creating a batch job, polling for its completion, and retrieving the results.
 - **Token Usage Reporting:** Automatically calculates and reports the total token usage for successfully completed batch jobs.
@@ -14,19 +15,30 @@ This project provides a unified command-line interface to test and compare the b
 
 - `main.py`: The main command-line interface for interacting with the batch processors.
 - `provider_factory.py`: Contains the factory function for creating provider instances.
+- `prompts.py`: Contains the prompts for text generation tasks.
+- `embedding_prompts.py`: Contains the prompts for embedding tasks.
 - `.env`: For storing your `GOOGLE_API_KEY`, `OPENAI_API_KEY`, and `ANTHROPIC_API_KEY`.
 - `.gitignore`: Ignores virtual environment files and `.env`.
 - `requirements.txt`: Lists the required Python packages.
 
 ## Models Used
 
-As of October 15, 2025, the following models are used for the batch jobs:
+As of October 26, 2025, the following models are used for the batch jobs:
+
+### Text Generation
 
 | Provider  | Model Name                   |
 | --------- | ---------------------------- |
 | Google    | `gemini-2.5-flash-lite`      |
 | OpenAI    | `gpt-4o-mini`                |
 | Anthropic | `claude-3-haiku-20240307`    |
+
+### Embeddings
+
+| Provider  | Model Name                   |
+| --------- | ---------------------------- |
+| Google    | `gemini-embedding-001`       |
+| OpenAI    | `text-embedding-3-small`     |
 
 These models are defined as constants in their respective provider files (e.g., `providers/google.py`).
 
@@ -55,18 +67,34 @@ These models are defined as constants in their respective provider files (e.g., 
 
 ## Usage
 
-The `main.py` script is the primary entry point. All commands follow the format: `python main.py --provider <provider> --action <action> [options]`.
+The `main.py` script is the primary entry point. All commands follow the format: `python main.py --provider <provider> --action <action> --task <task> [options]`.
+
+### Selecting a Task
+
+The `--task` flag allows you to choose between `text-generation` and `embedding`. If not specified, it defaults to `text-generation`.
 
 ### Create Batch Jobs
 
-Creates a specified number of new batch jobs, with a specified number of requests per job.
+Creates a specified number of new batch jobs (`--num_jobs`), with each job containing a specified number of requests (`--requests_per_job`). For example, `--num_jobs 5 --requests_per_job 2` will create 5 separate batch jobs, each containing 2 requests.
+
+#### Text Generation
 
 ```bash
 # For OpenAI (creates 10 jobs by default, with 1 request per job)
-python main.py --provider openai --action create_jobs
+python main.py --provider openai --action create_jobs --task text-generation
 
 # For Google (creates 5 jobs with 2 requests per job)
-python main.py --provider google --action create_jobs --num_jobs 5 --requests_per_job 2
+python main.py --provider google --action create_jobs --task text-generation --num_jobs 5 --requests_per_job 2
+```
+
+#### Embeddings
+
+```bash
+# For OpenAI
+python main.py --provider openai --action create_jobs --task embedding
+
+# For Google
+python main.py --provider google --action create_jobs --task embedding --num_jobs 5 --requests_per_job 2
 ```
 
 ### Check Recent Batch Jobs

@@ -7,6 +7,7 @@ from provider_factory import get_provider
 from logger import set_logging_level, get_logger
 from enum import Enum
 from prompts import PROMPTS
+from embedding_prompts import SAMPLE_TEXTS
 
 
 # Define an Enum for providers to ensure type safety
@@ -14,6 +15,12 @@ class Provider(Enum):
     GOOGLE = "google"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+
+
+# Define an Enum for tasks
+class Task(Enum):
+    TEXT_GENERATION = "text-generation"
+    EMBEDDING = "embedding"
 
 
 # Define an Enum for actions
@@ -33,6 +40,8 @@ flags.DEFINE_enum("provider", None, [p.value for p in Provider],
 flags.mark_flag_as_required("provider")
 flags.DEFINE_multi_enum("action", [], [a.value for a in Action],
                         "The action(s) to perform.")
+flags.DEFINE_enum("task", Task.TEXT_GENERATION.value, [t.value for t in Task],
+                  "The type of task to perform.")
 flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
 flags.DEFINE_integer("requests_per_job", 1,
                      "The number of inference requests per batch job.")
@@ -78,17 +87,26 @@ def main(argv):
                 "You must specify at least one action with the --action flag.")
 
         if Action.CREATE_JOBS.value in FLAGS.action:
+            if FLAGS.task == Task.TEXT_GENERATION.value:
+                prompts = PROMPTS
+                create_jobs_fn = provider.create_jobs
+            elif FLAGS.task == Task.EMBEDDING.value:
+                prompts = SAMPLE_TEXTS
+                create_jobs_fn = provider.create_embedding_jobs
+            else:
+                raise ValueError(f"Unknown task: {FLAGS.task}")
+
             total_requests = FLAGS.num_jobs * FLAGS.requests_per_job
-            if total_requests > len(PROMPTS):
+            if total_requests > len(prompts):
                 raise ValueError(
-                    f"Total number of requests ({total_requests}) cannot exceed the number of available prompts ({len(PROMPTS)})."
+                    f"Total number of requests ({total_requests}) cannot exceed the number of available prompts ({len(prompts)})."
                 )
             logger.info(
-                "Creating %d new batch jobs for provider: %s with %d requests per job",
-                FLAGS.num_jobs, FLAGS.provider, FLAGS.requests_per_job)
-            created_job_ids = provider.create_jobs(
+                "Creating %d new %s batch jobs for provider: %s with %d requests per job",
+                FLAGS.num_jobs, FLAGS.task, FLAGS.provider, FLAGS.requests_per_job)
+            created_job_ids = create_jobs_fn(
                 FLAGS.num_jobs, FLAGS.requests_per_job,
-                PROMPTS[:total_requests])
+                prompts[:total_requests])
             logger.info("Successfully created job IDs: %s", created_job_ids)
 
             # Design Rationale:
