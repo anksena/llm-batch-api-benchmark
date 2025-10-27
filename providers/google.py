@@ -25,6 +25,7 @@ class GoogleProvider(BatchProvider):
     """Batch processing provider for Google."""
 
     MODEL_NAME = "models/gemini-2.5-flash-lite"
+    EMBEDDING_MODEL_NAME = "models/gemini-embedding-001"
 
     @property
     def _job_status_enum(self):
@@ -141,6 +142,55 @@ class GoogleProvider(BatchProvider):
     def get_provider_name(self):
         return "google"
 
+    def create_embedding_jobs(self, num_jobs: int, requests_per_job: int,
+                            prompts: list[str]) -> list[str]:
+        """Creates a specified number of batch embedding jobs."""
+        job_ids: list[str] = []
+        for i in range(num_jobs):
+            start: int = i * requests_per_job
+            end: int = start + requests_per_job
+            job_prompts: list[str] = prompts[start:end]
+            job_id: str = self._create_single_embedding_job(i, num_jobs,
+                                                            job_prompts)
+            job_ids.append(job_id)
+        return job_ids
+
+    def _create_single_embedding_job(self, job_index: int, total_jobs: int,
+                                   prompts: list[str]) -> str:
+        """Creates a single batch embedding job with multiple requests."""
+        file_path = f"google-batch-request-{job_index}.jsonl"
+        with open(file_path, "w", encoding="utf-8") as f:
+            for i, prompt in enumerate(prompts):
+                google_req = {
+                    "key": f"request-{i}",
+                    "request": {
+                        "model": self.EMBEDDING_MODEL_NAME,
+                        "content": {
+                            "parts": [{"text": prompt}]
+                        },
+                        "output_dimensionality": 512
+                    }
+                }
+                f.write(json.dumps(google_req) + "\n")
+        
+        with open(file_path, "rb") as f:
+            uploaded_file = self.client.files.upload(
+                file=f,
+                config=google_genai.types.UploadFileConfig(
+                    display_name=f'batch-embeddings-test-{job_index}',
+                    mime_type="application/jsonl"
+                )
+            )
+        os.remove(file_path)
+
+        batch_job = self.client.batches.create_embeddings(
+            model=self.EMBEDDING_MODEL_NAME,
+            src={"file_name": uploaded_file.name},
+        )
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    batch_job.name)
+        return batch_job.name
+
     def _calculate_total_tokens(self, job):
         """Downloads the result file and calculates the total tokens used."""
         total_tokens = 0
@@ -158,8 +208,14 @@ class GoogleProvider(BatchProvider):
                         continue
                     try:
                         result = json.loads(line)
-                        if 'response' in result and 'usageMetadata' in result['response']:
-                            total_tokens += result['response']['usageMetadata'].get('totalTokenCount', 0)
+                        if 'response' in result:
+                            response = result['response']
+                            if 'usageMetadata' in response:
+                                total_tokens += response['usageMetadata'].get('totalTokenCount', 0)
+                            elif 'embedding' in response:
+                                # This is an embedding response, which doesn't have a token count.
+                                # We can either skip it or estimate it. For now, we'll skip.
+                                pass
                     except json.JSONDecodeError:
                         logger.warning("Could not decode JSON line: %s", line)
                 

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from logger import get_logger, set_logging_level
 from prompts import PROMPTS
 from provider_factory import get_provider
+from embedding_prompts import SAMPLE_TEXTS
 
 
 # Define an Enum for providers to ensure type safety
@@ -17,6 +18,12 @@ class Provider(Enum):
   GOOGLE_VERTEX_AI = "google_vertex_ai"
   OPENAI = "openai"
   ANTHROPIC = "anthropic"
+
+
+# Define an Enum for tasks
+class Task(Enum):
+    TEXT_GENERATION = "text-generation"
+    EMBEDDING = "embedding"
 
 
 # Define an Enum for actions
@@ -35,16 +42,15 @@ flags.DEFINE_enum(
     "provider", None, [p.value for p in Provider], "The AI provider to use."
 )
 flags.mark_flag_as_required("provider")
-flags.DEFINE_multi_enum(
-    "action", [], [a.value for a in Action], "The action(s) to perform."
-)
-flags.DEFINE_integer("num_jobs", 10, "The number of new batch jobs to create.")
-flags.DEFINE_integer(
-    "requests_per_job", 1, "The number of inference requests per batch job."
-)
-flags.DEFINE_integer(
-    "hours_ago", 36, "The number of hours ago to check for recent jobs."
-)
+flags.DEFINE_multi_enum("action", [], [a.value for a in Action],
+                        "The action(s) to perform.")
+flags.DEFINE_enum("task", Task.TEXT_GENERATION.value, [t.value for t in Task],
+                  "The type of task to perform.")
+flags.DEFINE_integer("num_jobs", 1, "The number of new batch jobs to create.")
+flags.DEFINE_integer("requests_per_job", 1,
+                     "The number of inference requests per batch job.")
+flags.DEFINE_integer("hours_ago", 36,
+                     "The number of hours ago to check for recent jobs.")
 flags.DEFINE_string("job_id", None, "The job ID to cancel.")
 flags.DEFINE_string(
     "state_file", None, "The path to the state file to process."
@@ -95,45 +101,49 @@ def main(argv):
     provider = get_provider(FLAGS.provider)
 
     if not FLAGS.action:
-      raise ValueError(
-          "You must specify at least one action with the --action flag."
-      )
+        raise ValueError(
+            "You must specify at least one action with the --action flag."
+        )
 
     if Action.CREATE_JOBS.value in FLAGS.action:
-      total_requests = FLAGS.num_jobs * FLAGS.requests_per_job
-      if total_requests > len(PROMPTS):
-        raise ValueError(
-            f"Total number of requests ({total_requests}) cannot exceed the"
-            f" number of available prompts ({len(PROMPTS)})."
-        )
-      logger.info(
-          "Creating %d new batch jobs for provider: %s with %d requests"
-          " per job",
-          FLAGS.num_jobs,
-          FLAGS.provider,
-          FLAGS.requests_per_job,
-      )
-      created_job_ids = provider.create_jobs(
-          FLAGS.num_jobs, FLAGS.requests_per_job, PROMPTS[:total_requests]
-      )
-      logger.info("Successfully created job IDs: %s", created_job_ids)
+        if FLAGS.task == Task.TEXT_GENERATION.value:
+            prompts = PROMPTS
+            create_jobs_fn = provider.create_jobs
+        elif FLAGS.task == Task.EMBEDDING.value:
+            prompts = SAMPLE_TEXTS
+            create_jobs_fn = provider.create_embedding_jobs
+        else:
+            raise ValueError(f"Unknown task: {FLAGS.task}")
 
-      # Design Rationale:
-      # We generate reports in a separate step to adhere to the Single
-      # Responsibility Principle. The `create_jobs` method is solely
-      # responsible for creating jobs, while
-      # `generate_job_report_for_user` is responsible for fetching
-      # and formatting reports. This promotes modularity and code reuse.
-      logger.info(
-          "Generating reports for new jobs and saving to %s", output_filename
-      )
-      with open(output_filename, "a", encoding="utf-8") as f_out:
-        for job_id in created_job_ids:
-          report = provider.generate_job_report_for_user(job_id)
-          if report:
-            report_json = report.to_json()
-            print(report_json)
-            f_out.write(report_json + "\n")
+        total_requests = FLAGS.num_jobs * FLAGS.requests_per_job
+        if total_requests > len(prompts):
+            raise ValueError(
+                f"Total number of requests ({total_requests}) cannot exceed the number of available prompts ({len(prompts)})."
+            )
+        logger.info(
+            "Creating %d new %s batch jobs for provider: %s with %d requests per job",
+            FLAGS.num_jobs, FLAGS.task, FLAGS.provider, FLAGS.requests_per_job)
+        created_job_ids = create_jobs_fn(
+            FLAGS.num_jobs, FLAGS.requests_per_job,
+            prompts[:total_requests])
+        logger.info("Successfully created job IDs: %s", created_job_ids)
+
+        # Design Rationale:
+        # We generate reports in a separate step to adhere to the Single
+        # Responsibility Principle. The `create_jobs` method is solely
+        # responsible for creating jobs, while
+        # `generate_job_report_for_user` is responsible for fetching
+        # and formatting reports. This promotes modularity and code reuse.
+        logger.info(
+            "Generating reports for new jobs and saving to %s", output_filename
+        )
+        with open(output_filename, "a", encoding="utf-8") as f_out:
+            for job_id in created_job_ids:
+                report = provider.generate_job_report_for_user(job_id)
+                if report:
+                    report_json = report.to_json()
+                    print(report_json)
+                    f_out.write(report_json + "\n")
 
     if Action.CHECK_RECENT_JOBS.value in FLAGS.action:
       logger.info(
