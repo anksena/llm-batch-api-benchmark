@@ -35,6 +35,7 @@ class GoogleVertexAiProvider(BatchProvider):
   """Batch processing provider for Google."""
 
   MODEL_NAME = "gemini-2.5-flash-lite"
+  EMBEDDING_MODEL_NAME = "text-embedding-005"
 
   GCS_INPUT_PREFIX = "gemini_batch_src/"
 
@@ -77,7 +78,7 @@ class GoogleVertexAiProvider(BatchProvider):
   def _create_single_batch_job(
       self, job_index: int, total_jobs: int, prompts: list[str]
   ) -> str:
-    file_path = f"gemini-batch-request-{job_index}.jsonl"
+    file_path = f"gemini-vertex-ai-batch-request-text-generation-{job_index}.jsonl"
     with open(file_path, "w", encoding="utf-8") as f:
       for i, prompt in enumerate(prompts):
         gemini_req = {
@@ -98,7 +99,7 @@ class GoogleVertexAiProvider(BatchProvider):
     )
     # Customize a display name and use that name to create unique output path for each job.
     current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
-    display_name = f"vertexai-gemini-batch-job-{job_index}-{current_time}"
+    display_name = f"vertexai-gemini-batch-job-text-generation-{job_index}-{current_time}"
     output_prefix = display_name
     job = self.client.batches.create(
         model=self.MODEL_NAME,
@@ -199,6 +200,57 @@ class GoogleVertexAiProvider(BatchProvider):
 
   def get_provider_name(self):
     return "google_vertex_ai"
+  
+  
+  def create_embedding_jobs(self, num_jobs: int, requests_per_job: int,
+                          prompts: list[str]) -> list[str]:
+      """Creates a specified number of batch embedding jobs."""
+      job_ids: list[str] = []
+      for i in range(num_jobs):
+          start: int = i * requests_per_job
+          end: int = start + requests_per_job
+          job_prompts: list[str] = prompts[start:end]
+          job_id: str = self._create_single_embedding_job(i, num_jobs,
+                                                          job_prompts)
+          job_ids.append(job_id)
+      return job_ids
+
+  def _create_single_embedding_job(self, job_index: int, total_jobs: int,
+                                  prompts: list[str]) -> str:
+      """Creates a single batch embedding job with multiple requests."""
+      file_path = f"google-vertex-ai-batch-request-embeddings-{job_index}.jsonl"
+      with open(file_path, "w", encoding="utf-8") as f:
+          for i, prompt in enumerate(prompts):
+              google_vertex_ai_req = {
+                  "content": prompt,
+                  "title": f"job-{i}",
+                  "outputDimensionality": 512,
+              }
+              f.write(json.dumps(google_vertex_ai_req) + "\n")
+
+      gcs_blob = self.gcs_input_bucket.blob(f"{self.GCS_INPUT_PREFIX}{file_path}")
+      gcs_blob.upload_from_filename(file_path)
+      os.remove(file_path)
+
+      input_data = (
+          f"gs://{self.gcs_input_bucket_name}/{self.GCS_INPUT_PREFIX}{file_path}"
+      )
+      # Customize a display name and use that name to create unique output path for each job.
+      current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
+      display_name = f"vertexai-gemini-batch-job-embeddings-{job_index}-{current_time}"
+      output_prefix = display_name
+
+      job = self.client.batches.create(
+        model=self.EMBEDDING_MODEL_NAME,
+        src=input_data,
+        config=CreateBatchJobConfig(
+            display_name=display_name,
+            dest=f"gs://{self.gcs_output_bucket_name}/{output_prefix}",
+        ),
+      )
+      logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                  job.name)
+      return job.name
 
   def _calculate_total_tokens(self, job):
     """Downloads the result file and calculates the total tokens used."""
