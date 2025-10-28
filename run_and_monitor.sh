@@ -7,15 +7,18 @@ OUTPUT_BUCKET="llm-batch-api-benchmark-output-bucket"
 # Prefix for the state files created by the first command
 REPORT_PREFIX="google_vertex_ai_job_reports"
 INTERVAL=30 # Check interval in seconds
+TASK="text-generation" # Change to embedding or other task as needed
+NUM_JOBS=50 # Number of jobs to create
+REQUESTS_PER_JOB=200 # Number of requests per job
 
 echo "--- 1. Starting Vertex AI Batch Job Creation ---"
 # Execute the initial command to create the batch job
 python main.py \
     --provider $PROVIDER \
     --action create_jobs \
-    --task text-generation \
-    --num_jobs 1 \
-    --requests_per_job 10000 \
+    --task $TASK \
+    --num_jobs $NUM_JOBS \
+    --requests_per_job $REQUESTS_PER_JOB \
     --vertex_ai_gcs_input_bucket_name="$INPUT_BUCKET" \
     --vertex_ai_gcs_output_bucket_name="$OUTPUT_BUCKET"
 
@@ -44,8 +47,6 @@ while true; do
         echo "WARNING: No state file found with prefix '${REPORT_PREFIX}'. Retrying in ${INTERVAL} seconds."
     else
         echo "Found latest state file: ${latest_file}"
-        
-        # --- NEW LOGIC: Check if the file is empty ---
         if [ -s "$latest_file" ]; then
             # File is NOT empty (-s checks if file has a size greater than zero)
             
