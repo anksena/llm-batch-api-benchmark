@@ -1,20 +1,78 @@
 #!/bin/bash
 
-# Run a batch job and continuously check latest state file until all jobs reach terminal state.
+# Usage: bash ./run_and_monitor.sh --provider {provider} --task {task} --num_jobs {num_jobs} --requests_per_job {requests_per_job} --input_bucket {input_bucket} --output_bucket {output_bucket} --interval {interval}
 
-# --- Script Configuration ---
+# --- Script Configuration (Defaults) ---
+# These values will be used unless overridden by command-line arguments
 PROVIDER="google_vertex_ai"
 INPUT_BUCKET="llm-batch-api-benchmark-input-bucket"
 OUTPUT_BUCKET="llm-batch-api-benchmark-output-bucket"
-# Prefix for the state files created by the first command
-REPORT_PREFIX="google_vertex_ai_job_reports"
 INTERVAL=30 # Check interval in seconds
 TASK="text-generation" # Change to embedding or other task as needed
 NUM_JOBS=1 # Number of jobs to create
 REQUESTS_PER_JOB=200 # Number of requests per job
+# REPORT_PREFIX will be set after parsing, based on the final PROVIDER value
 
-echo "--- 1. Starting $PROVIDER Batch Job Creation ---"
-# Execute the initial command to create the batch job
+# --- Argument Parsing Loop ---
+# This loop reads arguments (e.g., --provider "value") and overwrites defaults.
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --provider)
+        PROVIDER="$2"
+        shift 2 # past argument and value
+        ;;
+        --input_bucket)
+        INPUT_BUCKET="$2"
+        shift 2
+        ;;
+        --output_bucket)
+        OUTPUT_BUCKET="$2"
+        shift 2
+        ;;
+        --interval)
+        INTERVAL="$2"
+        shift 2
+        ;;
+        --task)
+        TASK="$2"
+        shift 2
+        ;;
+        --num_jobs)
+        NUM_JOBS="$2"
+        shift 2
+        ;;
+        --requests_per_job)
+        REQUESTS_PER_JOB="$2"
+        shift 2
+        ;;
+        *)
+        # unknown option
+        echo "ERROR: Unknown option: $1"
+        echo "Usage: $0 [--provider <val>] [--input_bucket <val>] [--output_bucket <val>] [--interval <val>] [--task <val>] [--num_jobs <val>] [--requests_per_job <val>]"
+        exit 1
+        ;;
+    esac
+done
+
+
+REPORT_PREFIX="${PROVIDER}_job_reports"
+
+
+# --- Print Final Configuration ---
+echo "--- 🚀 Starting Batch Job with Configuration ---"
+echo "Provider:         $PROVIDER"
+echo "Task:             $TASK"
+echo "Input Bucket:     $INPUT_BUCKET"
+echo "Output Bucket:    $OUTPUT_BUCKET"
+echo "Report Prefix:    $REPORT_PREFIX"
+echo "Check Interval:   ${INTERVAL}s"
+echo "Jobs to Create:   $NUM_JOBS"
+echo "Requests per Job: $REQUESTS_PER_JOB"
+echo "-------------------------------------------------"
+
+# --- 1. Starting Batch Job Creation ---
+echo "Starting job creation..."
 python main.py \
     --provider $PROVIDER \
     --action create_jobs \
