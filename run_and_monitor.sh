@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Run a batch job and continuously check latest state file until all jobs reach terminal state.
+
 # --- Script Configuration ---
 PROVIDER="google_vertex_ai"
 INPUT_BUCKET="llm-batch-api-benchmark-input-bucket"
@@ -8,10 +10,10 @@ OUTPUT_BUCKET="llm-batch-api-benchmark-output-bucket"
 REPORT_PREFIX="google_vertex_ai_job_reports"
 INTERVAL=30 # Check interval in seconds
 TASK="text-generation" # Change to embedding or other task as needed
-NUM_JOBS=50 # Number of jobs to create
+NUM_JOBS=1 # Number of jobs to create
 REQUESTS_PER_JOB=200 # Number of requests per job
 
-echo "--- 1. Starting Vertex AI Batch Job Creation ---"
+echo "--- 1. Starting $PROVIDER Batch Job Creation ---"
 # Execute the initial command to create the batch job
 python main.py \
     --provider $PROVIDER \
