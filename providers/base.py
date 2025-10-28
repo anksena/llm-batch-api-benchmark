@@ -180,7 +180,6 @@ class BatchProvider(ABC):
         one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
         return job_create_time < one_day_ago
 
-    @abstractmethod
     def create_embedding_jobs(self, num_jobs: int, requests_per_job: int,
                             prompts: list[str]) -> list[str]:
         """Creates a specified number of batch embedding jobs."""
