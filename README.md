@@ -156,11 +156,11 @@ To monitor a set of jobs until they all reach a terminal state (e.g., `SUCCEEDED
 
 **Automation Script:**
 
-The process of starting a job and repeatedly checking newest report file can be automated by running `run_and_monitor.sh'.
+The process of starting a job and repeatedly checking newest report file can be automated by running `run_and_monitor.sh`.
 
-    ```bash
+    ```
     bash ./run_and_monitor.sh --provider google --task text-generation --num_jobs 20 --requests_per_job 100 --interval 20
-    # This creates 20 text generation batch jobs for Google provider, checks newest report with `google_job_reports` prefix every 20 seconds until the newest report is empty, meaing all jobs reach terminal state.
+    # This creates 20 text generation batch jobs for Google provider, checks newest report with `google_job_reports` prefix every 20 seconds until the newest report is empty, which means all jobs reach terminal state.
     ```
 
 
