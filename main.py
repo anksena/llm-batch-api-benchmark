@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from logger import get_logger, set_logging_level
 from prompts import PROMPTS
 from provider_factory import get_provider
-from embedding_prompts import SAMPLE_TEXTS
 
 
 # Define an Enum for providers to ensure type safety
@@ -110,7 +109,7 @@ def main(argv):
             prompts = PROMPTS
             create_jobs_fn = provider.create_jobs
         elif FLAGS.task == Task.EMBEDDING.value:
-            prompts = SAMPLE_TEXTS
+            prompts = PROMPTS
             create_jobs_fn = provider.create_embedding_jobs
         else:
             raise ValueError(f"Unknown task: {FLAGS.task}")
