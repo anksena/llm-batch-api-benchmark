@@ -14,45 +14,61 @@ This script demonstrates a robust, scalable lifecycle for multimodal batch jobs:
 import os
 import json
 import time
-import base64
+import uuid
 from openai import OpenAI
 from dotenv import load_dotenv
+from google.cloud import storage
 
 # --- Configuration ---
 MODEL_NAME = "gpt-4o-mini"
 IMAGE_FILES = ["test_images/image1.jpg", "test_images/image2.jpg"]
-LOCAL_REQUEST_FILE = "openai_batch_multimodal_requests.jsonl"
-LOCAL_OUTPUT_FILE = "openai_batch_multimodal_results.jsonl"
+LOCAL_REQUEST_FILE = "openai_batch_multimodal_gcs_requests.jsonl"
+LOCAL_OUTPUT_FILE = "openai_batch_multimodal_gcs_results.jsonl"
 POLL_INTERVAL_SECONDS = 10
 
-def run_openai_batch_job():
-    """Orchestrates the entire API workflow."""
+def run_openai_batch_job_with_gcs():
+    """Orchestrates the entire API workflow using GCS-hosted images."""
     load_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY not found in .env file")
 
     client = OpenAI(api_key=api_key)
+    storage_client = storage.Client()
 
-    uploaded_image_files = []
+    bucket_name = f"openai-batch-test-{uuid.uuid4()}"
+    bucket = None
+    blobs = []
     uploaded_request_file = None
     batch_job = None
     result_file_id = None
 
     try:
-        # 1. Generate the JSONL request file with inline image data
+        # 1. Create a GCS bucket
+        print(f"--- Creating GCS bucket: {bucket_name} ---")
+        bucket = storage_client.create_bucket(bucket_name, location="US")
+        print("  - Bucket created.")
+
+        # 2. Upload images and make them public
+        image_urls = []
+        for image_path in IMAGE_FILES:
+            blob_name = os.path.basename(image_path)
+            blob = bucket.blob(blob_name)
+            print(f"--- Uploading {image_path} to GCS... ---")
+            blob.upload_from_filename(image_path)
+            print("  - Upload complete.")
+            print("--- Making blob public... ---")
+            blob.make_public()
+            print(f"  - Blob is now public at: {blob.public_url}")
+            blobs.append(blob)
+            image_urls.append(blob.public_url)
+
+        # 3. Generate the JSONL request file with the public GCS URLs
         print(f"\n--- Generating batch request file: {LOCAL_REQUEST_FILE} ---")
         with open(LOCAL_REQUEST_FILE, "w") as f:
-            for i, image_path in enumerate(IMAGE_FILES):
-                if not os.path.exists(image_path):
-                    print(f"Warning: Image file not found at {image_path}. Skipping.")
-                    continue
-                
-                with open(image_path, "rb") as image_file:
-                    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
-
+            for i, image_url in enumerate(image_urls):
                 request_data = {
-                    "custom_id": f"request-{i}",
+                    "custom_id": f"request-gcs-{i}",
                     "method": "POST",
                     "url": "/v1/chat/completions",
                     "body": {
@@ -62,7 +78,7 @@ def run_openai_batch_job():
                                 "role": "user",
                                 "content": [
                                     {"type": "text", "text": "Caption this image in one sentence."},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                                    {"type": "image_url", "image_url": {"url": image_url}}
                                 ]
                             }
                         ]
@@ -71,14 +87,14 @@ def run_openai_batch_job():
                 f.write(json.dumps(request_data) + "\n")
         print("  - Generation complete.")
 
-        # 2. Upload the JSONL request file
+        # 4. Upload the JSONL request file
         print(f"\n--- Uploading request file... ---")
         with open(LOCAL_REQUEST_FILE, "rb") as f:
             uploaded_request_file = client.files.create(file=f, purpose="batch")
         print(f"  - Success! File ID: {uploaded_request_file.id}")
         os.remove(LOCAL_REQUEST_FILE)
 
-        # 3. Create the batch job
+        # 5. Create the batch job
         print("\n--- Creating batch job... ---")
         batch_job = client.batches.create(
             input_file_id=uploaded_request_file.id,
@@ -121,7 +137,7 @@ def run_openai_batch_job():
 
     finally:
         # 7. Cleanup
-        print("\n--- Cleaning up all server-side files... ---")
+        print("\n--- Cleaning up all server-side and GCS files... ---")
         if result_file_id:
             try:
                 print(f"Deleting result file: {result_file_id}")
@@ -138,8 +154,23 @@ def run_openai_batch_job():
             except Exception as e:
                 print(f"  - Error deleting request file: {e}")
 
+        for blob in blobs:
+            try:
+                print(f"Deleting blob {blob.name} from bucket {bucket_name}...")
+                blob.delete()
+                print("  - Blob deleted.")
+            except Exception as e:
+                print(f"  - Error deleting blob: {e}")
         
+        if bucket:
+            try:
+                print(f"Deleting bucket {bucket_name}...")
+                bucket.delete()
+                print("  - Bucket deleted.")
+            except Exception as e:
+                print(f"  - Error deleting bucket: {e}")
+
         print("Cleanup complete.")
 
 if __name__ == "__main__":
-    run_openai_batch_job()
+    run_openai_batch_job_with_gcs()
