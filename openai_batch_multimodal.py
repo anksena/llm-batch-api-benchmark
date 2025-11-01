@@ -170,6 +170,14 @@ def run_openai_batch_job_with_gcs():
             except Exception as e:
                 print(f"  - Error deleting bucket: {e}")
 
+        if os.path.exists(LOCAL_OUTPUT_FILE):
+            try:
+                print(f"Deleting local result file: {LOCAL_OUTPUT_FILE}...")
+                os.remove(LOCAL_OUTPUT_FILE)
+                print("  - Deleted.")
+            except Exception as e:
+                print(f"  - Error deleting local result file: {e}")
+
         print("Cleanup complete.")
 
 if __name__ == "__main__":

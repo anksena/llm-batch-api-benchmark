@@ -162,6 +162,14 @@ def run_batch_job_v3():
                 print("  - Deleted.")
             except Exception as e:
                 print(f"  - Error deleting image file: {e}")
+
+        if os.path.exists(LOCAL_OUTPUT_FILE):
+            try:
+                print(f"Deleting local result file: {LOCAL_OUTPUT_FILE}...")
+                os.remove(LOCAL_OUTPUT_FILE)
+                print("  - Deleted.")
+            except Exception as e:
+                print(f"  - Error deleting local result file: {e}")
         
         print("Cleanup complete.")
 

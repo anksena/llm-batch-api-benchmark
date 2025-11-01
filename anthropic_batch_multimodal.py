@@ -11,141 +11,165 @@ This script demonstrates a robust, scalable lifecycle for multimodal batch jobs:
 7.  Notes: Anthropic automatically handles file cleanup after 7 days.
 """
 
-import base64
 import json
-import mimetypes  # Required to get image media types
+import mimetypes
 import os
 import time
+import uuid
 from anthropic import Anthropic
 from dotenv import load_dotenv
-import requests  # Required for uploading/downloading to signed URLs
+from google.cloud import storage
+import requests
 
 # --- Configuration ---
-# Use a modern Claude 3 model that supports vision
 MODEL_NAME = "claude-3-haiku-20240307"
 IMAGE_FILES = ["test_images/image1.jpg", "test_images/image2.jpg"]
-LOCAL_REQUEST_FILE = "anthropic_batch_multimodal_requests.jsonl"
+LOCAL_REQUEST_FILE = "anthropic_batch_multimodal_file_api_requests.jsonl"
 LOCAL_OUTPUT_FILE = "anthropic_batch_multimodal_results.jsonl"
 POLL_INTERVAL_SECONDS = 10
 
 
-def run_anthropic_batch_job():
-  """Orchestrates the entire API workflow."""
-  load_dotenv()
-  api_key = os.getenv("ANTHROPIC_API_KEY")
-  if not api_key:
-    raise ValueError("ANTHROPIC_API_KEY not found in .env file")
+def run_anthropic_batch_job_with_gcs():
+    """Orchestrates the entire API workflow using GCS-hosted images."""
+    load_dotenv()
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY not found in .env file")
 
-  client = Anthropic(api_key=api_key)
-  try:
-    # 1. Generate the JSONL request file with inline image data
-    anthropic_requests = []
-    print(f"\n--- Generating batch request file: {LOCAL_REQUEST_FILE} ---")
-    with open(LOCAL_REQUEST_FILE, "w") as f:
-      for i, image_path in enumerate(IMAGE_FILES):
-        if not os.path.exists(image_path):
-          print(f"Warning: Image file not found at {image_path}. Skipping.")
-          continue
+    client = Anthropic(api_key=api_key)
+    storage_client = storage.Client()
 
-        # Get media type (e.g., 'image/jpeg', 'image/png')
-        media_type, _ = mimetypes.guess_type(image_path)
-        if not media_type or not media_type.startswith("image/"):
-          print(
-              f"Warning: Could not determine image media type for {image_path}."
-              " Skipping."
-          )
-          continue
-        print(f"Image media type: {media_type}")
+    bucket_name = f"anthropic-batch-test-{uuid.uuid4()}"
+    bucket = None
+    blobs = []
+    batch_job = None
 
-        with open(image_path, "rb") as image_file:
-          base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+    try:
+        # 1. Create a GCS bucket
+        print(f"--- Creating GCS bucket: {bucket_name} ---")
+        bucket = storage_client.create_bucket(bucket_name, location="US")
+        print("  - Bucket created.")
 
-        request_data = {
-            "custom_id": f"request-{i}",
-            "params": {
-                "model": MODEL_NAME,
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Caption this image in one sentence.",
-                        },
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": base64_image,
+        # 2. Upload images and make them public
+        image_urls = []
+        for image_path in IMAGE_FILES:
+            blob_name = os.path.basename(image_path)
+            blob = bucket.blob(blob_name)
+            print(f"--- Uploading {image_path} to GCS... ---")
+            blob.upload_from_filename(image_path)
+            print("  - Upload complete.")
+            print("--- Making blob public... ---")
+            blob.make_public()
+            print(f"  - Blob is now public at: {blob.public_url}")
+            blobs.append(blob)
+            image_urls.append(blob.public_url)
+
+        # 3. Build the list of requests with public GCS URLs
+        print("\n--- Building batch requests... ---")
+        anthropic_requests = []
+        for i, image_url in enumerate(image_urls):
+            request_data = {
+                "custom_id": f"request-gcs-{i}",
+                "params": {
+                    "model": MODEL_NAME,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Caption this image in one sentence.",
                             },
-                        },
-                    ],
-                }],
-                "max_tokens": 1024,
-            },
-        }
-        anthropic_requests.append(request_data)
-        f.write(json.dumps(request_data) + "\n")
-    print("  - Generation complete.")
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "url",
+                                    "url": image_url,
+                                },
+                            },
+                        ],
+                    }],
+                    "max_tokens": 1024,
+                },
+            }
+            anthropic_requests.append(request_data)
+        print("  - Requests built.")
 
-    # 3. Create the batch job
-    print("\n--- Creating batch job... ---")
-    batch_job = client.beta.messages.batches.create(requests=anthropic_requests)
-    print(
-        f"  - Created job: {batch_job.id} with status:"
-        f" {batch_job.processing_status}"
-    )
+        # 4. Create the batch job directly from the list of requests
+        print("\n--- Creating batch job... ---")
+        batch_job = client.beta.messages.batches.create(
+            requests=anthropic_requests,
+        )
+        print(
+            f"  - Created job: {batch_job.id} with status:"
+            f" {batch_job.processing_status}"
+        )
 
-    # 4. Poll for completion
-    print("\n--- Polling for job completion... ---")
-    while batch_job.processing_status in ("starting", "in_progress"):
-      time.sleep(POLL_INTERVAL_SECONDS)
-      batch_job = client.beta.messages.batches.retrieve(batch_job.id)
-      print(f"  - Job status: {batch_job.processing_status}")
+        # 5. Poll for completion
+        print("\n--- Polling for job completion... ---")
+        while batch_job.processing_status in ("starting", "in_progress"):
+            time.sleep(POLL_INTERVAL_SECONDS)
+            batch_job = client.beta.messages.batches.retrieve(batch_job.id)
+            print(f"  - Job status: {batch_job.processing_status}")
 
-    # 5. Process results
-    if batch_job.processing_status == "ended" and batch_job.results_url:
-      print("\n--- Job COMPLETED! Downloading and printing results... ---")
-      response = client.get(batch_job.results_url, cast_to=bytes)
-      result_content = response.decode("utf-8").strip()
+        # 6. Process results
+        if batch_job.processing_status == "ended" and batch_job.results_url:
+            print("\n--- Job COMPLETED! Downloading and printing results... ---")
+            response = client.get(batch_job.results_url, cast_to=bytes)
+            result_content = response.decode("utf-8").strip()
 
-      print(f"Saving results to {LOCAL_OUTPUT_FILE} and printing.")
-      with open(LOCAL_OUTPUT_FILE, "w", encoding="utf-8") as f:
-        f.write(result_content)
+            print(f"Saving results to {LOCAL_OUTPUT_FILE} and printing.")
+            with open(LOCAL_OUTPUT_FILE, "w", encoding="utf-8") as f:
+                f.write(result_content)
 
-      # Parse and print results (format is different from OpenAI)
-      for line in result_content.splitlines():
-        if not line:
-          continue
-        result_json = json.loads(line)
-        print(f"--- Result for Custom ID: {result_json.get('custom_id')} ---")
-        if "result" in result_json and result_json["result"]:
-          # The 'result' field contains the full chat completion object
-          print(json.dumps(result_json["result"], indent=2))
-        elif "error" in result_json and result_json["error"]:
-          print(f"Error: {json.dumps(result_json['error'], indent=2)}")
+            for line in result_content.splitlines():
+                if not line:
+                    continue
+                result_json = json.loads(line)
+                print(f"--- Result for Custom ID: {result_json.get('custom_id')} ---")
+                if "result" in result_json and result_json["result"]:
+                    print(json.dumps(result_json["result"], indent=2))
+                elif "error" in result_json and result_json["error"]:
+                    print(f"Error: {json.dumps(result_json['error'], indent=2)}")
+        else:
+            print(
+                "\n--- Job FAILED or was CANCELLED. Final status:"
+                f" {batch_job.processing_status} ---"
+            )
+            if batch_job.errors:
+                print(f"Error details: {batch_job.errors}")
 
-    else:
-      print(
-          "\n--- Job FAILED or was CANCELLED. Final status:"
-          f" {batch_job.processing_status} ---"
-      )
-      if batch_job.errors:
-        print(f"Error details: {batch_job.errors}")
+    except Exception as e:
+        print(f"\n--- An unhandled error occurred: {e} ---")
 
-  except Exception as e:
-    print(f"\n--- An unhandled error occurred: {e} ---")
+    finally:
+        # 7. Cleanup
+        print("\n--- Cleaning up GCS resources... ---")
+        for blob in blobs:
+            try:
+                print(f"Deleting blob {blob.name} from bucket {bucket_name}...")
+                blob.delete()
+                print("  - Blob deleted.")
+            except Exception as e:
+                print(f"  - Error deleting blob: {e}")
+        
+        if bucket:
+            try:
+                print(f"Deleting bucket {bucket_name}...")
+                bucket.delete()
+                print("  - Bucket deleted.")
+            except Exception as e:
+                print(f"  - Error deleting bucket: {e}")
 
-  finally:
-    # 7. Cleanup
-    print("\n--- Cleanup ---")
-    print(
-        "  - Anthropic automatically deletes batch input and output files after"
-        " 7 days."
-    )
-    print("  - No manual file deletion is required.")
-    print("Local cleanup complete.")
+        if os.path.exists(LOCAL_OUTPUT_FILE):
+            try:
+                print(f"Deleting local result file: {LOCAL_OUTPUT_FILE}...")
+                os.remove(LOCAL_OUTPUT_FILE)
+                print("  - Deleted.")
+            except Exception as e:
+                print(f"  - Error deleting local result file: {e}")
+
+        print("Cleanup complete.")
 
 
 if __name__ == "__main__":
-  run_anthropic_batch_job()
+    run_anthropic_batch_job_with_gcs()
