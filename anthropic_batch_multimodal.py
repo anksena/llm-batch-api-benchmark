@@ -16,6 +16,7 @@ import mimetypes
 import os
 import time
 import uuid
+import csv
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from google.cloud import storage
@@ -23,6 +24,8 @@ import requests
 
 # --- Configuration ---
 MODEL_NAME = "claude-3-haiku-20240307"
+IMAGE_URL_LIST_FILE = "multimodal-images-url-list.tsv"
+NUM_IMAGES_TO_PROCESS = 500 # Number of URLs to take from the TSV
 IMAGE_FILES = ["test_images/image1.jpg", "test_images/image2.jpg"]
 LOCAL_REQUEST_FILE = "anthropic_batch_multimodal_file_api_requests.jsonl"
 LOCAL_OUTPUT_FILE = "anthropic_batch_multimodal_results.jsonl"
@@ -38,38 +41,55 @@ def run_anthropic_batch_job_with_gcs():
 
     client = Anthropic(api_key=api_key)
     storage_client = storage.Client()
-
-    bucket_name = f"anthropic-batch-test-{uuid.uuid4()}"
+    
+    gcs_input_bucket_name = "llm-batch-api-benchmark-images"
+    gcs_input_bucket = storage_client.bucket(gcs_input_bucket_name)
     bucket = None
     blobs = []
     batch_job = None
 
     try:
-        # 1. Create a GCS bucket
-        print(f"--- Creating GCS bucket: {bucket_name} ---")
-        bucket = storage_client.create_bucket(bucket_name, location="US")
-        print("  - Bucket created.")
+        # 1. List images in GCS bucket to get gs:// URIs
+        print(f"\n--- Listing up to {NUM_IMAGES_TO_PROCESS} images from GCS: gs://{gcs_input_bucket_name}/images/ ---")
+        image_data = [] # Will store {"url": ..., "mime": ...}
+        gcs_image_prefix = "images/"
+        try:
+            blobs = gcs_input_bucket.list_blobs(prefix=gcs_image_prefix, max_results=NUM_IMAGES_TO_PROCESS)
+            for blob in blobs:
+                # Skip the "folder" placeholder object itself
+                if blob.name == gcs_image_prefix or blob.name.endswith('/'):
+                    continue
+                
+                # Get MIME type, default to jpeg if unknown
+                mime = blob.content_type
+                if not mime:
+                    mime = "image/jpeg" # Default if not set
+                if not mime.startswith("image/"):
+                    print(f"  - WARNING: Skipping non-image file: {blob.name} (MIME: {mime})")
+                    continue
+                image_data.append({
+                    "url": blob.public_url,
+                    "mime": mime
+                })
 
-        # 2. Upload images and make them public
-        image_urls = []
-        for image_path in IMAGE_FILES:
-            blob_name = os.path.basename(image_path)
-            blob = bucket.blob(blob_name)
-            print(f"--- Uploading {image_path} to GCS... ---")
-            blob.upload_from_filename(image_path)
-            print("  - Upload complete.")
-            print("--- Making blob public... ---")
-            blob.make_public()
-            print(f"  - Blob is now public at: {blob.public_url}")
-            blobs.append(blob)
-            image_urls.append(blob.public_url)
+            print(f"  - Found {len(image_data)} images to process.")
+            if not image_data:
+                raise ValueError("No images found in GCS bucket/prefix. Exiting.")
+        except Exception as e:
+            print(f"  - ERROR listing GCS bucket: {e}")
+            raise
+        # Check if any images were successfully processed
+        if not image_data:
+            raise ValueError("No images were successfully found. Aborting job.")
 
         # 3. Build the list of requests with public GCS URLs
         print("\n--- Building batch requests... ---")
         anthropic_requests = []
-        for i, image_url in enumerate(image_urls):
+        for i, data in enumerate(image_data):
+            image_url = data["url"]
+            print(f"Building request {i} with image URL: {image_url}")
             request_data = {
-                "custom_id": f"request-gcs-{i}",
+                "custom_id": f"request-{i}",
                 "params": {
                     "model": MODEL_NAME,
                     "messages": [{
@@ -143,31 +163,7 @@ def run_anthropic_batch_job_with_gcs():
 
     finally:
         # 7. Cleanup
-        print("\n--- Cleaning up GCS resources... ---")
-        for blob in blobs:
-            try:
-                print(f"Deleting blob {blob.name} from bucket {bucket_name}...")
-                blob.delete()
-                print("  - Blob deleted.")
-            except Exception as e:
-                print(f"  - Error deleting blob: {e}")
-        
-        if bucket:
-            try:
-                print(f"Deleting bucket {bucket_name}...")
-                bucket.delete()
-                print("  - Bucket deleted.")
-            except Exception as e:
-                print(f"  - Error deleting bucket: {e}")
-
-        if os.path.exists(LOCAL_OUTPUT_FILE):
-            try:
-                print(f"Deleting local result file: {LOCAL_OUTPUT_FILE}...")
-                os.remove(LOCAL_OUTPUT_FILE)
-                print("  - Deleted.")
-            except Exception as e:
-                print(f"  - Error deleting local result file: {e}")
-
+        print("\n--- Cleaning up... ---")
         print("Cleanup complete.")
 
 

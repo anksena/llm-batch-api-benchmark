@@ -2,9 +2,9 @@
 Standalone script for running a multimodal batch job with the Gemini API.
 
 This script demonstrates a robust, scalable lifecycle for multimodal batch jobs:
-1.  Uploads each image file individually to the File API to get a URI.
-2.  Generates a JSONL request file where each request references an image URI
-    using the correct `file_data` format.
+1.  Lists up to 10k images from a GCS bucket (llm-batch-api-benchmark-input-bucket/images).
+2.  Generates a JSONL request file where each request references an image's 
+    internal GCS URI (gs://) using the correct `file_data` format.
 3.  Uploads the JSONL request file.
 4.  Creates the batch job using the uploaded request file.
 5.  Polls the job status until it completes.
@@ -17,6 +17,8 @@ import json
 import time
 from datetime import datetime, timezone
 import mimetypes
+import csv
+
 from google import genai as google_genai
 from google.genai.types import JobState
 from google.genai.types import CreateBatchJobConfig
@@ -26,9 +28,9 @@ from dotenv import load_dotenv
 
 # --- Configuration ---
 MODEL_NAME = "gemini-2.5-flash-lite"
-IMAGE_FILES = ["test_images/image1.jpg", "test_images/image2.jpg"]
-LOCAL_REQUEST_FILE = "batch_multimodal_requests.jsonl"
-LOCAL_OUTPUT_FILE = "batch_multimodal_results.jsonl"
+NUM_IMAGES_TO_PROCESS = 500 # Max number of images to list from GCS
+LOCAL_REQUEST_FILE = "vertexai_batch_multimodal_requests.jsonl"
+LOCAL_OUTPUT_FILE = "vertexai_batch_multimodal_results.jsonl"
 POLL_INTERVAL_SECONDS = 10
 
 def run_batch_job_v3():
@@ -50,38 +52,55 @@ def run_batch_job_v3():
     gcs_output_bucket = gcs_client.bucket(gcs_output_bucket_name)
     gcs_input_prefix = "gemini_batch_src/"
 
-    uploaded_image_file_blobs = []
-    uploaded_image_file_uris = []
     request_gcs_blob= None
     request_gcs_uri = None
     batch_job = None
     result_blob_name = None
 
     try:
-        # 1. Upload image files individually to get their URIs
-        print("--- Uploading image assets... ---")
-        for image_path in IMAGE_FILES:
-            if not os.path.exists(image_path):
-                print(f"Warning: Image file not found at {image_path}. Skipping.")
-                continue
-            print(f"Uploading '{image_path}'...")
-            gcs_blob = gcs_input_bucket.blob(f"{gcs_input_prefix}{image_path}")
-            gcs_blob.upload_from_filename(image_path)
-            gcs_uri = f"gs://{gcs_input_bucket_name}/{gcs_blob.name}"
-            print(f"  - Success! URI: {gcs_uri}")
-            uploaded_image_file_uris.append(gcs_uri)
-            uploaded_image_file_blobs.append(gcs_blob.name)
+        # 1. List images in GCS bucket to get gs:// URIs
+        print(f"\n--- Listing up to {NUM_IMAGES_TO_PROCESS} images from GCS: gs://{gcs_input_bucket_name}/images/ ---")
+        image_data = [] # Will store {"url": ..., "mime": ...}
+        gcs_image_prefix = "images/"
+        try:
+            # For some weird reason we need to set n+1 here to get n images.
+            blobs = gcs_input_bucket.list_blobs(prefix=gcs_image_prefix, max_results=NUM_IMAGES_TO_PROCESS+1)
+            for blob in blobs:
+                # Skip the "folder" placeholder object itself
+                if blob.name == gcs_image_prefix or blob.name.endswith('/'):
+                    continue
+                
+                # Get MIME type, default to jpeg if unknown
+                mime = blob.content_type
+                if not mime:
+                    mime = "image/jpeg" # Default if not set
+                
+                if not mime.startswith("image/"):
+                    print(f"  - WARNING: Skipping non-image file: {blob.name} (MIME: {mime})")
+                    continue
+                
+                # --- CHANGE: Use gs:// URI instead of public https:// URL ---
+                image_data.append({
+                    "url": f"gs://{gcs_input_bucket_name}/{blob.name}",
+                    "mime": mime
+                })
 
-        if not uploaded_image_file_uris:
-            raise ValueError("No images were uploaded. Aborting.")
+            print(f"  - Found {len(image_data)} images to process.")
+            if not image_data:
+                raise ValueError("No images found in GCS bucket/prefix. Exiting.")
+        except Exception as e:
+            print(f"  - ERROR listing GCS bucket: {e}")
+            raise
+        # Check if any images were successfully processed
+        if not image_data:
+            raise ValueError("No images were successfully found. Aborting job.")
 
         # 2. Generate the JSONL request file using the correct file_data format
         print(f"\n--- Generating batch request file: {LOCAL_REQUEST_FILE} ---")
         with open(LOCAL_REQUEST_FILE, "w") as f:
-            for i, image_file_uri in enumerate(uploaded_image_file_uris):
-                mime_type, _ = mimetypes.guess_type(IMAGE_FILES[i])
-                if mime_type is None:
-                    mime_type = "application/octet-stream"
+            for i, data in enumerate(image_data):
+                image_url = data["url"]
+                mime_type = data["mime"]
 
                 request_data = {
                     "key": f"request-{i}",
@@ -93,7 +112,7 @@ def run_batch_job_v3():
                                 {
                                     "file_data": {
                                         "mime_type": mime_type,
-                                        "file_uri": image_file_uri
+                                        "file_uri": image_url
                                     }
                                 },
                                 {"text": "Caption this image in one sentence."}
@@ -127,7 +146,7 @@ def run_batch_job_v3():
                 dest=f"gs://{gcs_output_bucket_name}/{output_prefix}",
             ),
         )
-        print(f"  - Created job: {batch_job.name} with state: {batch_job.state.name}")
+        print(f"  - Created job: {batch_job.name} with state: {batch_job.state}")
 
         # 5. Poll for completion
         print("\n--- Polling for job completion... ---")
@@ -178,32 +197,23 @@ def run_batch_job_v3():
     finally:
         # 7. Cleanup
         print("\n--- Cleaning up all server-side files... ---")
-        if batch_job and batch_job.state == JobState.JOB_STATE_SUCCEEDED:
-             if result_blob_name:
-                try:
-                    print(f"Deleting result file: {result_blob_name}")
-                    gcs_output_bucket.delete_blob(result_blob_name)
-                    print("  - Deleted.")
-                except Exception as e:
-                    print(f"  - Error deleting result file: {e}")
+        # if batch_job and batch_job.state == JobState.JOB_STATE_SUCCEEDED:
+        #      if result_blob_name:
+        #         try:
+        #             print(f"Deleting result file: {result_blob_name}")
+        #             gcs_output_bucket.delete_blob(result_blob_name)
+        #             print("  - Deleted.")
+        #         except Exception as e:
+        #             print(f"  - Error deleting result file: {e}")
         
-        if request_gcs_blob:
-            try:
-                print(f"Deleting request file: {request_gcs_blob}")
-                gcs_blob_request = gcs_input_bucket.blob(request_gcs_blob)
-                gcs_input_bucket.delete_blob(gcs_blob_request.name)
-                print("  - Deleted.")
-            except Exception as e:
-                print(f"  - Error deleting request file: {e}")
-
-        for img_file in uploaded_image_file_blobs:
-            try:
-                print(f"Deleting image file: {img_file}")
-                gcs_blob_img = gcs_input_bucket.blob(img_file)
-                gcs_input_bucket.delete_blob(gcs_blob_img.name)
-                print("  - Deleted.")
-            except Exception as e:
-                print(f"  - Error deleting image file: {e}")
+        # if request_gcs_blob:
+        #     try:
+        #         print(f"Deleting request file: {request_gcs_blob}")
+        #         gcs_blob_request = gcs_input_bucket.blob(request_gcs_blob)
+        #         gcs_input_bucket.delete_blob(gcs_blob_request.name)
+        #         print("  - Deleted.")
+        #     except Exception as e:
+        #         print(f"  - Error deleting request file: {e}")
         
         print("Cleanup complete.")
 

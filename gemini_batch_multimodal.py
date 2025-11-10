@@ -15,16 +15,21 @@ This script demonstrates a robust, scalable lifecycle for multimodal batch jobs:
 import os
 import json
 import time
+import csv
 import mimetypes
 from google import genai as google_genai
 from google.genai.types import JobState
+from google.cloud import storage
+
 from dotenv import load_dotenv
 
 # --- Configuration ---
 MODEL_NAME = "models/gemini-2.5-flash-lite"
+IMAGE_URL_LIST_FILE = "multimodal-images-url-list.tsv"
+NUM_IMAGES_TO_PROCESS = 500 # Number of URLs to take from the TSV
 IMAGE_FILES = ["test_images/image1.jpg", "test_images/image2.jpg"]
-LOCAL_REQUEST_FILE = "batch_multimodal_requests.jsonl"
-LOCAL_OUTPUT_FILE = "batch_multimodal_results.jsonl"
+LOCAL_REQUEST_FILE = "gemini_batch_multimodal_requests.jsonl"
+LOCAL_OUTPUT_FILE = "gemini_batch_multimodal_results.jsonl"
 POLL_INTERVAL_SECONDS = 10
 
 def run_batch_job_v3():
@@ -35,34 +40,58 @@ def run_batch_job_v3():
         raise ValueError("GOOGLE_API_KEY not found in .env file")
 
     client = google_genai.Client(api_key=api_key)
+    storage_client = storage.Client()
 
-    uploaded_image_files = []
+    gcs_input_bucket_name = "llm-batch-api-benchmark-images"
+    gcs_input_bucket = storage_client.bucket(gcs_input_bucket_name)
+
     uploaded_request_file = None
     batch_job = None
     result_file_name = None
 
     try:
-        # 1. Upload image files individually to get their URIs
-        print("--- Uploading image assets... ---")
-        for image_path in IMAGE_FILES:
-            if not os.path.exists(image_path):
-                print(f"Warning: Image file not found at {image_path}. Skipping.")
-                continue
-            print(f"Uploading '{image_path}'...")
-            uploaded_file = client.files.upload(file=image_path)
-            uploaded_image_files.append(uploaded_file)
-            print(f"  - Success! URI: {uploaded_file.uri}")
+        # 1. List images in GCS bucket to get gs:// URIs
+        print(f"\n--- Listing up to {NUM_IMAGES_TO_PROCESS} images from GCS: gs://{gcs_input_bucket_name}/images/ ---")
+        image_data = [] # Will store {"url": ..., "mime": ...}
+        gcs_image_prefix = "images/"
+        try:
+            # For some weird reason we need to set n+1 here to get n images.
+            blobs = gcs_input_bucket.list_blobs(prefix=gcs_image_prefix, max_results=NUM_IMAGES_TO_PROCESS+1)
+            for blob in blobs:
+                # Skip the "folder" placeholder object itself
+                if blob.name == gcs_image_prefix or blob.name.endswith('/'):
+                    continue
+                
+                # Get MIME type, default to jpeg if unknown
+                mime = blob.content_type
+                if not mime:
+                    mime = "image/jpeg" # Default if not set
+                
+                if not mime.startswith("image/"):
+                    print(f"  - WARNING: Skipping non-image file: {blob.name} (MIME: {mime})")
+                    continue
+                
+                image_data.append({
+                    "url": blob.uri,
+                    "mime": mime
+                })
 
-        if not uploaded_image_files:
-            raise ValueError("No images were uploaded. Aborting.")
+            print(f"  - Found {len(image_data)} images to process.")
+            if not image_data:
+                raise ValueError("No images found in GCS bucket/prefix. Exiting.")
+        except Exception as e:
+            print(f"  - ERROR listing GCS bucket: {e}")
+            raise
+        # Check if any images were successfully processed
+        if not image_data:
+            raise ValueError("No images were successfully found. Aborting job.")
 
         # 2. Generate the JSONL request file using the correct file_data format
         print(f"\n--- Generating batch request file: {LOCAL_REQUEST_FILE} ---")
         with open(LOCAL_REQUEST_FILE, "w") as f:
-            for i, image_file in enumerate(uploaded_image_files):
-                mime_type, _ = mimetypes.guess_type(IMAGE_FILES[i])
-                if mime_type is None:
-                    mime_type = "application/octet-stream"
+            for i, data in enumerate(image_data):
+                image_url = data["url"]
+                mime_type = "image/jpeg"
 
                 request_data = {
                     "key": f"request-{i}",
@@ -73,7 +102,7 @@ def run_batch_job_v3():
                                 {
                                     "file_data": {
                                         "mime_type": mime_type,
-                                        "file_uri": image_file.uri
+                                        "file_uri": image_url
                                     }
                                 },
                                 {"text": "Caption this image in one sentence."}
@@ -106,7 +135,7 @@ def run_batch_job_v3():
         while batch_job.state not in (JobState.JOB_STATE_SUCCEEDED, JobState.JOB_STATE_FAILED, JobState.JOB_STATE_CANCELLED, JobState.JOB_STATE_EXPIRED):
             time.sleep(POLL_INTERVAL_SECONDS)
             batch_job = client.batches.get(name=batch_job.name)
-            print(f"  - Job state: {batch_job.state.name}")
+            print(f"  - Job state: {batch_job.state}")
 
         # 6. Process results
         if batch_job.state == JobState.JOB_STATE_SUCCEEDED:
@@ -154,14 +183,6 @@ def run_batch_job_v3():
                 print("  - Deleted.")
             except Exception as e:
                 print(f"  - Error deleting request file: {e}")
-
-        for img_file in uploaded_image_files:
-            try:
-                print(f"Deleting image file: {img_file.name}")
-                client.files.delete(name=img_file.name)
-                print("  - Deleted.")
-            except Exception as e:
-                print(f"  - Error deleting image file: {e}")
 
         if os.path.exists(LOCAL_OUTPUT_FILE):
             try:
