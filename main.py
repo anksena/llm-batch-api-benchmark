@@ -116,7 +116,8 @@ def main(argv):
             prompts = SAMPLE_TEXTS
             create_jobs_fn = provider.create_embedding_jobs
         elif FLAGS.task == Task.MULTIMODAL.value:
-            # For multimodal, prompts are expected to be image URLs
+            # For multimodal, we need public urls for openai and anthropic
+            # and gs links for vertex ai.
             if FLAGS.provider == Provider.GOOGLE_VERTEX_AI.value:
                 prompts = get_image_gs_links_from_gcs()
             else:
