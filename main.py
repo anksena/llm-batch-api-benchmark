@@ -10,6 +10,8 @@ from logger import get_logger, set_logging_level
 from prompts import PROMPTS
 from provider_factory import get_provider
 from embedding_prompts import SAMPLE_TEXTS
+from list_gcs_images import get_image_urls_from_gcs, get_image_gs_links_from_gcs
+
 
 
 # Define an Enum for providers to ensure type safety
@@ -24,6 +26,7 @@ class Provider(Enum):
 class Task(Enum):
     TEXT_GENERATION = "text-generation"
     EMBEDDING = "embedding"
+    MULTIMODAL = "multimodal"
 
 
 # Define an Enum for actions
@@ -112,6 +115,13 @@ def main(argv):
         elif FLAGS.task == Task.EMBEDDING.value:
             prompts = SAMPLE_TEXTS
             create_jobs_fn = provider.create_embedding_jobs
+        elif FLAGS.task == Task.MULTIMODAL.value:
+            # For multimodal, prompts are expected to be image URLs
+            if FLAGS.provider == Provider.GOOGLE_VERTEX_AI.value:
+                prompts = get_image_gs_links_from_gcs()
+            else:
+                prompts = get_image_urls_from_gcs()
+            create_jobs_fn = provider.create_multimodal_jobs
         else:
             raise ValueError(f"Unknown task: {FLAGS.task}")
 
