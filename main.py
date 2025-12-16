@@ -113,7 +113,7 @@ def main(argv):
             prompts = PROMPTS
             create_jobs_fn = provider.create_jobs
         elif FLAGS.task == Task.EMBEDDING.value:
-            prompts = SAMPLE_TEXTS
+            prompts = PROMPTS
             create_jobs_fn = provider.create_embedding_jobs
         elif FLAGS.task == Task.MULTIMODAL.value:
             # For multimodal, we need public urls for openai and anthropic
