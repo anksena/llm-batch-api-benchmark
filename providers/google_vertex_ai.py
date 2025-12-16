@@ -56,6 +56,7 @@ class GoogleVertexAiProvider(BatchProvider):
       )
 
     self.gcs_input_bucket_name = FLAGS.vertex_ai_gcs_input_bucket_name
+    self.gcs_image_input_bucket_name = "llm-batch-api-benchmark-images"
     self.gcs_output_bucket_name = FLAGS.vertex_ai_gcs_output_bucket_name
 
     self.gcs_input_bucket = self.gcs_client.bucket(self.gcs_input_bucket_name)
@@ -237,6 +238,70 @@ class GoogleVertexAiProvider(BatchProvider):
       logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
                   job.name)
       return job.name
+
+  def _create_single_multimodal_job(self, job_index: int, total_jobs: int,
+                                    prompts: list[str]) -> str:
+    """Creates a single batch multimodal job with multiple requests."""
+    file_path = f"gemini-vertex-ai-batch-request-multimodal-{job_index}.jsonl"
+    with open(file_path, "w", encoding="utf-8") as f:
+        for i, image_url in enumerate(prompts):
+            # image_url is gs:// URI, like gs://bucket_name/blob_path
+            if not image_url.startswith(f"gs://{self.gcs_image_input_bucket_name}/"):
+                raise ValueError(
+                    f"Invalid GCS URI: {image_url}, expected prefix gs://{self.gcs_image_input_bucket_name}/"
+                )
+
+            blob_name = image_url[len(f"gs://{self.gcs_image_input_bucket_name}/") :]
+            blob = self.gcs_input_bucket.get_blob(blob_name)
+            if not blob:
+                raise ValueError(f"Blob not found for GCS URI: {image_url}")
+            mime_type = blob.content_type
+            if not mime_type:
+                mime_type = "image/jpeg"  # default
+
+            request_data = {
+                "key": f"request-{i}",
+                "request": {
+                    "model": self.MODEL_NAME,
+                    "contents": {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "file_data": {
+                                    "mime_type": mime_type,
+                                    "file_uri": image_url,
+                                }
+                            },
+                            {"text": "Caption this image in one sentence."},
+                        ],
+                    },
+                },
+            }
+            f.write(json.dumps(request_data) + "\n")
+
+    gcs_blob = self.gcs_input_bucket.blob(f"{self.GCS_INPUT_PREFIX}{file_path}")
+    gcs_blob.upload_from_filename(file_path)
+    os.remove(file_path)
+
+    input_data = (
+        f"gs://{self.gcs_input_bucket_name}/{self.GCS_INPUT_PREFIX}{file_path}"
+    )
+    # Customize a display name and use that name to create unique output path for each job.
+    current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
+    display_name = f"vertexai-gemini-batch-job-multimodal-{job_index}-{current_time}"
+    output_prefix = display_name
+    job = self.client.batches.create(
+        model=self.MODEL_NAME,
+        src=input_data,
+        config=CreateBatchJobConfig(
+            display_name=display_name,
+            dest=f"gs://{self.gcs_output_bucket_name}/{output_prefix}",
+        ),
+    )
+    logger.info(
+        "Created batch job %d/%d: %s", job_index + 1, total_jobs, job.name
+    )
+    return job.name
 
   def _calculate_total_tokens(self, job):
     """Downloads the result file and calculates the total tokens used."""
