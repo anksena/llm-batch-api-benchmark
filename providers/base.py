@@ -198,3 +198,22 @@ class BatchProvider(ABC):
                                    prompts: list[str]) -> str:
         """Creates a single batch embedding job with multiple requests."""
         pass
+
+    def create_multimodal_jobs(self, num_jobs: int, requests_per_job: int,
+                             prompts: list[str]) -> list[str]:
+        """Creates a specified number of batch multimodal jobs."""
+        job_ids: list[str] = []
+        for i in range(num_jobs):
+            start: int = i * requests_per_job
+            end: int = start + requests_per_job
+            job_prompts: list[str] = prompts[start:end]
+            job_id: str = self._create_single_multimodal_job(i, num_jobs,
+                                                             job_prompts)
+            job_ids.append(job_id)
+        return job_ids
+
+    @abstractmethod
+    def _create_single_multimodal_job(self, job_index: int, total_jobs: int,
+                                    prompts: list[str]) -> str:
+        """Creates a single batch multimodal job with multiple requests."""
+        pass

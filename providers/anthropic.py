@@ -54,6 +54,47 @@ class AnthropicProvider(BatchProvider):
                     job.id)
         return job.id
 
+    def _create_single_embedding_job(self, job_index: int, total_jobs: int,
+                                   prompts: list[str]) -> str:
+        raise NotImplementedError(
+            "Embedding jobs are not yet supported for Anthropic."
+        )
+
+    def _create_single_multimodal_job(self, job_index: int, total_jobs: int,
+                                    prompts: list[str]) -> str:
+        anthropic_requests = []
+        for i, image_url in enumerate(prompts):
+            request_data = {
+                "custom_id": f"request-{i}",
+                "params": {
+                    "model": self.MODEL_NAME,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Caption this image in one sentence.",
+                            },
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "url",
+                                    "url": image_url,
+                                },
+                            },
+                        ],
+                    }],
+                    "max_tokens": 1024,
+                },
+            }
+            anthropic_requests.append(request_data)
+
+        job = self.client.beta.messages.batches.create(
+            requests=anthropic_requests)
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    job.id)
+        return job.id
+
     def _get_job_list(self, hours_ago):
         all_jobs = []
         time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours_ago)

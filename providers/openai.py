@@ -179,6 +179,42 @@ class OpenAIProvider(BatchProvider):
                     job.id)
         return job.id
 
+    def _create_single_multimodal_job(self, job_index: int, total_jobs: int,
+                                    prompts: list[str]) -> str:
+        file_path = f"openai-batch-request-multimodal-{job_index}.jsonl"
+        with open(file_path, "w", encoding="utf-8") as f:
+            for i, image_url in enumerate(prompts):
+                request_data = {
+                    "custom_id": f"request-{i}",
+                    "method": "POST",
+                    "url": "/v1/chat/completions",
+                    "body": {
+                        "model": self.MODEL_NAME,
+                        "messages": [{
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "Caption this image in one sentence.",
+                                },
+                                {"type": "image_url", "image_url": {"url": image_url}},
+                            ],
+                        }],
+                    },
+                }
+                f.write(json.dumps(request_data) + "\n")
+
+        with open(file_path, "rb") as f:
+            batch_file = self.client.files.create(file=f, purpose="batch")
+        os.remove(file_path)
+
+        job = self.client.batches.create(input_file_id=batch_file.id,
+                                         endpoint="/v1/chat/completions",
+                                         completion_window="24h")
+        logger.info("Created batch job %d/%d: %s", job_index + 1, total_jobs,
+                    job.id)
+        return job.id
+
     def _calculate_total_tokens(self, job):
         """Downloads the result file and calculates the total tokens used."""
         total_tokens = 0
